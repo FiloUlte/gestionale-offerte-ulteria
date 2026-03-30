@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Gestionale Offerte</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ─── SIDEBAR ─── -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-row">
+        <div class="logo-dot">U</div>
+        <div>
+          <div class="logo-name">Ulteria</div>
+          <div class="logo-ver">Gestionale Offerte v1.0</div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Menu</div>
+      <div class="nav-item active" data-view="dashboard" onclick="navigate('dashboard')">
+        <i data-lucide="layout-dashboard" style="width:16px;height:16px"></i> Dashboard
+      </div>
+      <div class="nav-item" data-view="nuova" onclick="navigate('nuova')">
+        <i data-lucide="file-plus" style="width:16px;height:16px"></i> Nuova Offerta
+      </div>
+      <div class="nav-item" data-view="clienti" onclick="navigate('clienti')">
+        <i data-lucide="users" style="width:16px;height:16px"></i> Anagrafica Clienti
+      </div>
+      <div class="nav-item" data-view="impostazioni" onclick="navigate('impostazioni')">
+        <i data-lucide="settings" style="width:16px;height:16px"></i> Impostazioni
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sf-label">Azienda</div>
+      <div class="sf-name">Ulteria S.r.l.</div>
+      <div class="sf-code">ESCo UNI CEI 11352</div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─── -->
+  <div class="main">
+    <div class="topbar">
+      <div class="bc">
+        <i data-lucide="home" style="width:14px;height:14px"></i>
+        <span class="bc-sep">/</span>
+        <strong id="bc-title">Dashboard Offerte</strong>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:.73rem;color:var(--muted)" id="topbar-info"></span>
+      </div>
+    </div>
+
+    <div class="content" id="content">
+      <!-- Views rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
