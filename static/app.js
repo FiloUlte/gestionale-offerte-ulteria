@@ -327,7 +327,7 @@ function doGenera(id) {
 }
 
 function eliminaOfferta(id,numero) {
-  showModal("Conferma Eliminazione","Sei sicuro? L'offerta N\u00b0"+(numero||id)+" verr\u00e0 eliminata definitivamente.",[
+  showModal("Conferma Eliminazione","Sei sicuro? L\u2019offerta N\u00b0"+(numero||id)+" verr\u00e0 eliminata definitivamente.",[
     {label:"Annulla",cls:"btn btn-sec",action:"closeModal()"},
     {label:"Elimina",cls:"btn btn-danger",action:"doElimina("+id+")"}
   ]);
@@ -411,15 +411,36 @@ function renderWizStep2() {
   return h;
 }
 
+var _acClienti = [];
+
 function setupWizAutocomplete() {
-  var inp=document.getElementById("wiz-search-studio");
-  if(!inp)return;
-  inp.addEventListener("input",function(){
-    wizardData.nome_studio=this.value;
-    if(this.value.length<2){document.getElementById("wiz-ac-list").innerHTML="";return;}
-    api("GET","/api/clienti?q="+encodeURIComponent(this.value)).then(function(data){
-      var list=document.getElementById("wiz-ac-list");if(!list||!data.length){if(list)list.innerHTML="";return;}
-      list.innerHTML=data.map(function(c){return'<div class="ac-item" onclick="wizSelectCliente(\''+escHtml(c.nome_studio).replace(/'/g,"\\'")+'\',\''+escHtml(c.via||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.cap||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.citta||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.email||"").replace(/'/g,"\\'")+'\')"><div>'+escHtml(c.nome_studio)+'</div><div class="ac-item-sub">'+escHtml(c.citta||"")+'</div></div>';}).join("");
+  var inp = document.getElementById("wiz-search-studio");
+  if (!inp) return;
+  inp.addEventListener("input", function() {
+    wizardData.nome_studio = this.value;
+    if (this.value.length < 2) {
+      document.getElementById("wiz-ac-list").innerHTML = "";
+      return;
+    }
+    api("GET", "/api/clienti?q=" + encodeURIComponent(this.value)).then(function(data) {
+      var list = document.getElementById("wiz-ac-list");
+      if (!list) return;
+      if (!data.length) { list.innerHTML = ""; return; }
+      _acClienti = data;
+      var html = "";
+      for (var i = 0; i < data.length; i++) {
+        html += '<div class="ac-item" data-ac-idx="' + i + '">';
+        html += '<div>' + escHtml(data[i].nome_studio) + '</div>';
+        html += '<div class="ac-item-sub">' + escHtml(data[i].citta || "") + '</div></div>';
+      }
+      list.innerHTML = html;
+      list.querySelectorAll(".ac-item").forEach(function(el) {
+        el.addEventListener("click", function() {
+          var idx = parseInt(this.getAttribute("data-ac-idx"));
+          var c = _acClienti[idx];
+          if (c) wizSelectCliente(c.nome_studio, c.via || "", c.cap || "", c.citta || "", c.email || "");
+        });
+      });
     });
   });
 }
@@ -495,16 +516,49 @@ function wizGenera() {
 function renderClienti(c){api("GET","/api/clienti").then(function(d){clienti=d;buildClienti(c);lucide.createIcons();}).catch(function(e){c.innerHTML='<div class="alert a-warn">Errore: '+e.message+'</div>';console.error(e);});}
 
 function buildClienti(container) {
-  var html='<div class="fjb mb16"><div><div class="kicker">Gestione</div><div class="page-title">Anagrafica Clienti</div></div><button class="btn btn-primary" onclick="showNuovoCliente()"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuovo Cliente</button></div>';
-  html+='<div id="nuovo-cliente-form"></div>';
-  html+='<div class="card-0"><div class="scx"><table class="tbl"><thead><tr><th>Nome Studio</th><th>Referente</th><th>Citt\u00e0</th><th>Email</th><th>Telefono</th><th>Azioni</th></tr></thead><tbody>';
-  if(!clienti.length)html+='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Nessun cliente</td></tr>';
-  clienti.forEach(function(c){
-    html+='<tr style="cursor:pointer" onclick="loadClienteDetail('+c.id+')"><td><strong>'+escHtml(c.nome_studio)+'</strong></td><td>'+escHtml(c.referente||"")+'</td><td>'+escHtml(c.citta||"")+'</td><td>'+escHtml(c.email||"")+'</td><td>'+escHtml(c.telefono||"")+'</td>';
-    html+='<td><button class="btn btn-sm btn-sec" onclick="event.stopPropagation();nuovaOffertaPerCliente(\''+escHtml(c.nome_studio).replace(/'/g,"\\'")+'\',\''+escHtml(c.via||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.cap||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.citta||"").replace(/'/g,"\\'")+'\',\''+escHtml(c.email||"").replace(/'/g,"\\'")+'\')"><i data-lucide="file-plus" style="width:12px;height:12px"></i></button></td></tr>';
+  var html = '';
+  html += '<div class="fjb mb16"><div><div class="kicker">Gestione</div><div class="page-title">Anagrafica Clienti</div></div>';
+  html += '<button class="btn btn-primary" onclick="showNuovoCliente()"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuovo Cliente</button></div>';
+  html += '<div id="nuovo-cliente-form"></div>';
+  html += '<div class="card-0"><div class="scx"><table class="tbl"><thead><tr>';
+  html += '<th>Nome Studio</th><th>Referente</th><th>Citt\u00e0</th><th>Email</th><th>Telefono</th><th>Azioni</th>';
+  html += '</tr></thead><tbody>';
+  if (!clienti.length) {
+    html += '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Nessun cliente</td></tr>';
+  }
+  clienti.forEach(function(c) {
+    html += '<tr style="cursor:pointer" data-cid="' + c.id + '">';
+    html += '<td><strong>' + escHtml(c.nome_studio) + '</strong></td>';
+    html += '<td>' + escHtml(c.referente || "") + '</td>';
+    html += '<td>' + escHtml(c.citta || "") + '</td>';
+    html += '<td>' + escHtml(c.email || "") + '</td>';
+    html += '<td>' + escHtml(c.telefono || "") + '</td>';
+    html += '<td><button class="btn btn-sm btn-sec btn-new-off-for-client" data-cid="' + c.id + '"><i data-lucide="file-plus" style="width:12px;height:12px"></i></button></td>';
+    html += '</tr>';
   });
-  html+='</tbody></table></div></div><div id="cliente-detail-area"></div>';
-  container.innerHTML=html;lucide.createIcons();
+  html += '</tbody></table></div></div><div id="cliente-detail-area"></div>';
+  container.innerHTML = html;
+
+  // Attach events via delegation
+  container.querySelectorAll("tr[data-cid]").forEach(function(tr) {
+    tr.addEventListener("click", function() {
+      loadClienteDetail(parseInt(this.getAttribute("data-cid")));
+    });
+  });
+  container.querySelectorAll(".btn-new-off-for-client").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var cid = parseInt(this.getAttribute("data-cid"));
+      for (var i = 0; i < clienti.length; i++) {
+        if (clienti[i].id === cid) {
+          var c = clienti[i];
+          nuovaOffertaPerCliente(c.nome_studio, c.via || "", c.cap || "", c.citta || "", c.email || "");
+          break;
+        }
+      }
+    });
+  });
+  lucide.createIcons();
 }
 
 function showNuovoCliente(){
