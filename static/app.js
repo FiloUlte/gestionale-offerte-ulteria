@@ -361,7 +361,11 @@ function closeModalNow(){var el=document.getElementById("modal-overlay");if(el)e
 // ═══════════════════════════════════════════════════════════
 
 function renderNuova(container) {
-  if(!agenti.length)api("GET","/api/agenti").then(function(d){agenti=d;renderNuova(container);});
+  if (!agenti.length) {
+    api("GET", "/api/agenti").then(function(d) { agenti = d; renderNuova(container); });
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Caricamento...</div>';
+    return;
+  }
   var html='<div class="wiz-wrap"><div class="kicker">Nuova Offerta</div><div class="page-title mb20">Crea Offerta Accordo Quadro</div>';
   html+='<div class="wiz-steps mb24">';
   html+='<div class="wiz-step '+(wizardStep===1?"active":(wizardStep>1?"done":""))+'">1. Template</div>';
