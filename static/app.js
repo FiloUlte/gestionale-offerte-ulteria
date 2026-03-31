@@ -12,7 +12,9 @@ var searchTerm = "";
 var wizardStep = 1;
 var wizardData = {
   template: "", nome_studio: "", nome_condominio: "",
+  cond_via: "", cond_citta: "",
   via: "", cap: "", citta: "", email_studio: "",
+  telefono: "", referente: "",
   modalita: "vendita", prezzo_fornitura: "", prezzo_care: "",
   canone_lettura: "", note: "", salva_cliente: false, agente_id: ""
 };
@@ -538,11 +540,14 @@ function wizStep1Html() {
 }
 
 function wizStep2Html() {
-  var h = '<div class="wiz-section"><div class="wiz-section-title">Dati Studio</div>';
+  var h = "";
+
+  /* ── BOX CLIENTE ── */
+  h += '<div class="card mb16">';
+  h += '<div class="wiz-section-title"><i data-lucide="user" style="width:14px;height:14px;vertical-align:-2px"></i> Cliente / Amministratore</div>';
   h += '<div class="wiz-field" style="position:relative"><div class="wiz-label">Nome Studio *</div>';
-  h += '<input class="wiz-input" id="wiz-studio" value="' + esc(wizardData.nome_studio) + '" placeholder="Cerca o inserisci..." />';
+  h += '<input class="wiz-input" id="wiz-studio" value="' + esc(wizardData.nome_studio) + '" placeholder="Digita per cercare in anagrafica..." />';
   h += '<div class="ac-list" id="wiz-ac"></div></div>';
-  h += '<div class="wiz-field"><div class="wiz-label">Condominio</div><input class="wiz-input" id="wiz-cond" value="' + esc(wizardData.nome_condominio) + '" /></div>';
   h += '<div class="wiz-row">';
   h += '<div class="wiz-field"><div class="wiz-label">Via</div><input class="wiz-input" id="wiz-via" value="' + esc(wizardData.via) + '" /></div>';
   h += '<div class="wiz-field"><div class="wiz-label">CAP</div><input class="wiz-input" id="wiz-cap" value="' + esc(wizardData.cap) + '" /></div>';
@@ -551,15 +556,32 @@ function wizStep2Html() {
   h += '<div class="wiz-field"><div class="wiz-label">Citta *</div><input class="wiz-input" id="wiz-citta" value="' + esc(wizardData.citta) + '" /></div>';
   h += '<div class="wiz-field"><div class="wiz-label">Email</div><input class="wiz-input" id="wiz-email" value="' + esc(wizardData.email_studio) + '" /></div>';
   h += "</div>";
+  h += '<div class="wiz-row">';
+  h += '<div class="wiz-field"><div class="wiz-label">Telefono</div><input class="wiz-input" id="wiz-telefono" value="' + esc(wizardData.telefono || "") + '" /></div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Referente</div><input class="wiz-input" id="wiz-referente" value="' + esc(wizardData.referente || "") + '" /></div>';
+  h += "</div>";
+  h += '<label style="font-size:.8rem;display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer">';
+  h += '<input type="checkbox" id="wiz-save-client" ' + (wizardData.salva_cliente ? "checked" : "") + " /> Salva in Anagrafica Clienti</label>";
+  h += "</div>";
 
-  h += '<div class="wiz-field"><div class="wiz-label">Agente *</div><select class="wiz-input" id="wiz-agente"><option value="">-- Seleziona --</option>';
+  /* ── BOX CONDOMINIO ── */
+  h += '<div class="card mb16">';
+  h += '<div class="wiz-section-title"><i data-lucide="building" style="width:14px;height:14px;vertical-align:-2px"></i> Condominio</div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Nome Condominio</div><input class="wiz-input" id="wiz-cond" value="' + esc(wizardData.nome_condominio) + '" placeholder="Es. Condominio Aurora" /></div>';
+  h += '<div class="wiz-row">';
+  h += '<div class="wiz-field"><div class="wiz-label">Via Condominio</div><input class="wiz-input" id="wiz-cond-via" value="' + esc(wizardData.cond_via || "") + '" /></div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Citta Condominio</div><input class="wiz-input" id="wiz-cond-citta" value="' + esc(wizardData.cond_citta || "") + '" /></div>';
+  h += "</div>";
+  h += "</div>";
+
+  /* ── AGENTE ── */
+  h += '<div class="card mb16">';
+  h += '<div class="wiz-section-title"><i data-lucide="briefcase" style="width:14px;height:14px;vertical-align:-2px"></i> Agente</div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Agente *</div><select class="wiz-input" id="wiz-agente"><option value="">-- Seleziona agente --</option>';
   agenti.forEach(function(a) {
     h += '<option value="' + a.id + '"' + (wizardData.agente_id == a.id ? " selected" : "") + ">" + esc(a.nome + " " + a.cognome) + "</option>";
   });
   h += "</select></div>";
-
-  h += '<label style="font-size:.8rem;display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer">';
-  h += '<input type="checkbox" id="wiz-save-client" ' + (wizardData.salva_cliente ? "checked" : "") + " /> Salva in Anagrafica</label>";
   h += "</div>";
 
   h += '<div class="fjb mt16">';
@@ -580,18 +602,24 @@ function attachWizStep2(c) {
       if (!list || !data.length) { if (list) list.innerHTML = ""; return; }
       var html = "";
       data.forEach(function(cl, idx) {
-        html += '<div class="ac-item" data-ac="' + idx + '"><div>' + esc(cl.nome_studio) + '</div><div class="ac-item-sub">' + esc(cl.citta || "") + "</div></div>";
+        html += '<div class="ac-item" data-ac="' + idx + '">';
+        html += "<div><strong>" + esc(cl.nome_studio) + "</strong></div>";
+        html += '<div class="ac-item-sub">' + esc((cl.via || "") + (cl.citta ? ", " + cl.citta : "")) + "</div>";
+        html += "</div>";
       });
       list.innerHTML = html;
       list.querySelectorAll(".ac-item").forEach(function(el) {
         el.addEventListener("click", function() {
           var cl = acData[parseInt(this.getAttribute("data-ac"))];
           if (!cl) return;
-          document.getElementById("wiz-studio").value = cl.nome_studio;
+          /* Compila automaticamente TUTTI i campi cliente */
+          document.getElementById("wiz-studio").value = cl.nome_studio || "";
           document.getElementById("wiz-via").value = cl.via || "";
           document.getElementById("wiz-cap").value = cl.cap || "";
           document.getElementById("wiz-citta").value = cl.citta || "";
           document.getElementById("wiz-email").value = cl.email || "";
+          document.getElementById("wiz-telefono").value = cl.telefono || "";
+          document.getElementById("wiz-referente").value = cl.referente || "";
           document.getElementById("wiz-ac").innerHTML = "";
         });
       });
@@ -602,10 +630,14 @@ function attachWizStep2(c) {
   document.getElementById("wiz-next3").addEventListener("click", function() {
     wizardData.nome_studio = document.getElementById("wiz-studio").value;
     wizardData.nome_condominio = document.getElementById("wiz-cond").value;
+    wizardData.cond_via = document.getElementById("wiz-cond-via").value;
+    wizardData.cond_citta = document.getElementById("wiz-cond-citta").value;
     wizardData.via = document.getElementById("wiz-via").value;
     wizardData.cap = document.getElementById("wiz-cap").value;
     wizardData.citta = document.getElementById("wiz-citta").value;
     wizardData.email_studio = document.getElementById("wiz-email").value;
+    wizardData.telefono = document.getElementById("wiz-telefono").value;
+    wizardData.referente = document.getElementById("wiz-referente").value;
     wizardData.agente_id = document.getElementById("wiz-agente").value;
     wizardData.salva_cliente = document.getElementById("wiz-save-client").checked;
 
@@ -681,7 +713,12 @@ function attachWizStep3(c) {
     if (!pf || !pc || !cl) { showModal("Errore", "Compila tutti i campi economici.", [{ label: "Ok", cls: "btn btn-primary", fn: closeModal }]); return; }
 
     if (wizardData.salva_cliente) {
-      api("POST", "/api/clienti", { nome_studio: wizardData.nome_studio, via: wizardData.via, cap: wizardData.cap, citta: wizardData.citta, email: wizardData.email_studio });
+      api("POST", "/api/clienti", {
+        nome_studio: wizardData.nome_studio,
+        via: wizardData.via, cap: wizardData.cap, citta: wizardData.citta,
+        email: wizardData.email_studio, telefono: wizardData.telefono || "",
+        referente: wizardData.referente || ""
+      });
     }
 
     api("POST", "/api/offerte", {
@@ -698,7 +735,7 @@ function attachWizStep3(c) {
       if (!rd) return;
       if (res.ok) {
         rd.innerHTML = '<div class="alert a-ok">Offerta N. ' + res.numero + " generata con successo!" + (res.pdf_error ? " (PDF non disponibile)" : "") + "</div>";
-        wizardData = { template: "", nome_studio: "", nome_condominio: "", via: "", cap: "", citta: "", email_studio: "", modalita: "vendita", prezzo_fornitura: "", prezzo_care: "", canone_lettura: "", note: "", salva_cliente: false, agente_id: "" };
+        wizardData = { template: "", nome_studio: "", nome_condominio: "", cond_via: "", cond_citta: "", via: "", cap: "", citta: "", email_studio: "", telefono: "", referente: "", modalita: "vendita", prezzo_fornitura: "", prezzo_care: "", canone_lettura: "", note: "", salva_cliente: false, agente_id: "" };
         wizardStep = 1;
       } else {
         rd.innerHTML = '<div class="alert a-warn">' + (res.error || "Errore") + "</div>";
