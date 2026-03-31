@@ -482,11 +482,14 @@ function closeModal() {
    WIZARD — NUOVA OFFERTA
    ═══════════════════════════════════════════════════════════ */
 
+var _agentiLoaded = false;
+
 function renderNuova(c) {
-  if (!agenti.length) {
+  if (!_agentiLoaded) {
     c.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>';
     api("GET", "/api/agenti").then(function(d) {
       agenti = d;
+      _agentiLoaded = true;
       renderNuova(c);
     });
     return;
