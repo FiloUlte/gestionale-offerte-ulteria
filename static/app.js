@@ -39,13 +39,14 @@ function navigate(view) {
 }
 
 function renderView() {
+  console.log("[renderView] currentView =", currentView);
   var c = document.getElementById("content");
   if (currentView === "dashboard") renderDashboard(c);
   else if (currentView === "nuova") renderNuova(c);
   else if (currentView === "clienti") renderClienti(c);
   else if (currentView === "agenti") renderAgenti(c);
   else if (currentView === "impostazioni") renderImpostazioni(c);
-  lucide.createIcons();
+  try { lucide.createIcons(); } catch(e) { console.error("lucide error:", e); }
 }
 
 // ─── UTILS ───
@@ -457,7 +458,7 @@ function wizGoStep3() {
 
 function renderWizStep3() {
   var h='<div class="wiz-section"><div class="wiz-section-title">Dati Economici</div>';
-  h+='<div class="wiz-field"><div class="wiz-label">Centralizzazione</div><div class="pill-toggle"><button class="pill-opt '+(wizardData.modalita==="vendita"?"on":"")+'" onclick="wizardData.modalita=\'vendita\';renderView()">Vendita</button><button class="pill-opt '+(wizardData.modalita==="comodato"?"on":"")+'" onclick="wizardData.modalita=\'comodato\';renderView()">Comodato d\'Uso</button></div></div>';
+  h+='<div class="wiz-field"><div class="wiz-label">Centralizzazione</div><div class="pill-toggle"><button class="pill-opt '+(wizardData.modalita==="vendita"?"on":"")+'" onclick="wizardData.modalita=\'vendita\';renderView()">Vendita</button><button class="pill-opt '+(wizardData.modalita==="comodato"?"on":"")+'" onclick="wizardData.modalita=\'comodato\';renderView()">Comodato d\u2019Uso</button></div></div>';
   h+='<div class="wiz-row"><div class="wiz-field"><div class="wiz-label">Fornitura cad. \u20ac *</div><input class="wiz-input" type="number" step="0.01" id="wiz-pf" value="'+(wizardData.prezzo_fornitura||"")+'" oninput="wizardData.prezzo_fornitura=this.value;wizUpdateSummary()" /></div>';
   h+='<div class="wiz-field"><div class="wiz-label">Care cad/anno \u20ac *</div><input class="wiz-input" type="number" step="0.01" id="wiz-pc" value="'+(wizardData.prezzo_care||"")+'" oninput="wizardData.prezzo_care=this.value;wizUpdateSummary()" /></div></div>';
   h+='<div class="wiz-field"><div class="wiz-label">Lettura cad/anno \u20ac *</div><input class="wiz-input" type="number" step="0.01" id="wiz-cl" value="'+(wizardData.canone_lettura||"")+'" oninput="wizardData.canone_lettura=this.value;wizUpdateSummary()" /></div>';
