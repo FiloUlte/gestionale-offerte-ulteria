@@ -4,3 +4,5 @@ database.db
 output/
 *.db-journal
 .env
+database.db-shm
+database.db-wal
