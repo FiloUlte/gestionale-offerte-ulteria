@@ -78,7 +78,12 @@ function escHtml(s) {
 function api(method, url, data) {
   var opts = { method: method, headers: { "Content-Type": "application/json" } };
   if (data) opts.body = JSON.stringify(data);
-  return fetch(url, opts).then(function(r) { return r.json(); });
+  return fetch(url, opts).then(function(r) {
+    if (!r.ok) {
+      return r.text().then(function(t) { throw new Error("HTTP " + r.status + ": " + t.substring(0, 200)); });
+    }
+    return r.json();
+  });
 }
 
 function getAgente(id) {
@@ -110,6 +115,9 @@ function renderDashboard(container) {
     offerte = r[0]; agenti = r[1];
     buildDashboard(container);
     lucide.createIcons();
+  }).catch(function(e) {
+    container.innerHTML = '<div class="alert a-warn">Errore caricamento dashboard: ' + e.message + '</div>';
+    console.error("renderDashboard error:", e);
   });
 }
 
@@ -484,7 +492,7 @@ function wizGenera() {
 // ANAGRAFICA CLIENTI
 // ═══════════════════════════════════════════════════════════
 
-function renderClienti(c){api("GET","/api/clienti").then(function(d){clienti=d;buildClienti(c);lucide.createIcons();});}
+function renderClienti(c){api("GET","/api/clienti").then(function(d){clienti=d;buildClienti(c);lucide.createIcons();}).catch(function(e){c.innerHTML='<div class="alert a-warn">Errore: '+e.message+'</div>';console.error(e);});}
 
 function buildClienti(container) {
   var html='<div class="fjb mb16"><div><div class="kicker">Gestione</div><div class="page-title">Anagrafica Clienti</div></div><button class="btn btn-primary" onclick="showNuovoCliente()"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuovo Cliente</button></div>';
@@ -537,7 +545,7 @@ function nuovaOffertaPerCliente(n,v,cap,c,e){wizardData.nome_studio=n;wizardData
 // AGENTI
 // ═══════════════════════════════════════════════════════════
 
-function renderAgenti(c){api("GET","/api/agenti").then(function(d){agenti=d;buildAgenti(c);lucide.createIcons();});}
+function renderAgenti(c){api("GET","/api/agenti").then(function(d){agenti=d;buildAgenti(c);lucide.createIcons();}).catch(function(e){c.innerHTML='<div class="alert a-warn">Errore: '+e.message+'</div>';console.error(e);});}
 
 function buildAgenti(container) {
   var html='<div class="fjb mb16"><div><div class="kicker">Team</div><div class="page-title">Agenti</div></div><button class="btn btn-primary" onclick="showNuovoAgente()"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuovo Agente</button></div>';
@@ -602,7 +610,7 @@ function renderImpostazioni(container) {
   api("GET","/api/config").then(function(cfg){
     container.innerHTML='<div class="kicker">Sistema</div><div class="page-title mb20">Impostazioni</div><div class="g2"><div class="card"><div class="sec-ttl">Prossimo Numero Offerta</div><div class="fac gap8"><input class="inp" type="number" id="cfg-num" value="'+cfg.prossimo_numero+'" style="width:140px" /><button class="btn btn-primary btn-sm" onclick="salvaProssimoNumero()">Salva</button></div></div><div class="card"><div class="sec-ttl">Info Applicazione</div><div style="font-size:.82rem;color:var(--mid)"><div class="mb8"><strong>Versione:</strong> 1.0.0</div><div><strong>Offerte generate:</strong> '+(cfg.totale_offerte_generate||0)+'</div></div></div></div>';
     lucide.createIcons();
-  });
+  }).catch(function(e){container.innerHTML='<div class="alert a-warn">Errore: '+e.message+'</div>';console.error(e);});
 }
 
 function salvaProssimoNumero(){
