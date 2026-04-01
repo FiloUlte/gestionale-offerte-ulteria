@@ -382,6 +382,44 @@ def api_offerte_delete(oid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/offerte/<int:oid>/duplica", methods=["POST"])
+def api_offerte_duplica(oid):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM offerte WHERE id=?", (oid,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Non trovata"}), 404
+    orig = dict(row)
+
+    cfg = read_config()
+    numero = cfg["prossimo_numero"]
+    cfg["prossimo_numero"] = numero + 1
+    write_config(cfg)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute(
+        """INSERT INTO offerte
+           (numero, nome_studio, nome_condominio, via, cap, citta,
+            riferimento, template, prezzo_fornitura, prezzo_care,
+            canone_lettura, modalita, importo, stato, email_studio,
+            data_creazione, note, agente_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            numero, orig["nome_studio"], orig["nome_condominio"],
+            orig["via"], orig["cap"], orig["citta"],
+            orig["riferimento"], orig["template"],
+            orig["prezzo_fornitura"], orig["prezzo_care"],
+            orig["canone_lettura"], orig["modalita"], orig.get("importo"),
+            "in_attesa_assemblea", orig["email_studio"],
+            now, orig["note"], orig["agente_id"],
+        ),
+    )
+    conn.commit()
+    new_row = conn.execute("SELECT * FROM offerte WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify(dict(new_row)), 201
+
+
 # ── API: Genera ──────────────────────────────────────────────────────
 
 @app.route("/api/genera", methods=["POST"])

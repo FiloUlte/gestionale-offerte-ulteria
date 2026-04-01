@@ -112,10 +112,37 @@ function renderView() {
 
 
 /* ═══════════════════════════════════════════════════════════
-   DASHBOARD
+   DASHBOARD — Excel-like
    ═══════════════════════════════════════════════════════════ */
 
+var dashFilters = null;
+var dashSort = { col: null, dir: null };
+var dashSelected = {};
+var dashExpanded = null;
+var PAGE_SIZE = 50;
+var dashPage = 0;
+var dashVisibleCols = null;
+var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","nome_condominio","template","agente_id","importo","stato","giorni","azioni"];
+var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Condominio",template:"Template",agente_id:"Agente",importo:"Importo",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+
+function loadDashFilters() {
+  try {
+    var saved = localStorage.getItem("dashFilters");
+    if (saved) return JSON.parse(saved);
+  } catch (e) { /* */ }
+  return { stati: [], agente_id: "", template: "", q: "", dal: "", al: "" };
+}
+
+function saveDashFilters() {
+  try { localStorage.setItem("dashFilters", JSON.stringify(dashFilters)); } catch (e) { /* */ }
+}
+
 function renderDashboard(c) {
+  if (!dashFilters) dashFilters = loadDashFilters();
+  if (!dashVisibleCols) {
+    try { var s = localStorage.getItem("dashCols"); if (s) dashVisibleCols = JSON.parse(s); } catch (e) { /* */ }
+    if (!dashVisibleCols) dashVisibleCols = ALL_COLS.slice();
+  }
   c.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>';
   Promise.all([api("GET", "/api/offerte"), api("GET", "/api/agenti")]).then(function(r) {
     offerte = r[0];
@@ -126,178 +153,411 @@ function renderDashboard(c) {
   });
 }
 
-function buildDashboard(c) {
-  var total = offerte.length;
-  var aperte = 0;
-  var presi = 0;
-  offerte.forEach(function(o) {
-    if (o.stato === "richiamato" || o.stato === "in_attesa_assemblea" || o.stato === "rimandato") aperte++;
-    if (o.stato === "preso_lavoro") presi++;
+function calcKpi(list) {
+  var tot = list.length, aperte = 0, prese = 0, valPreso = 0, valPipeline = 0;
+  list.forEach(function(o) {
+    var imp = (o.prezzo_fornitura || 0) + (o.prezzo_care || 0) + (o.canone_lettura || 0);
+    if (o.stato === "preso_lavoro") { prese++; valPreso += imp; }
+    if (o.stato === "richiamato" || o.stato === "in_attesa_assemblea") { aperte++; valPipeline += imp; }
+    if (o.stato === "rimandato") aperte++;
   });
-  var filtered = filterOfferte();
-
-  var h = "";
-
-  /* KPI */
-  h += '<div class="g4 mb20">';
-  h += '<div class="kpi"><div class="kpi-l">Totale Offerte</div><div class="kpi-v kv-blue">' + total + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v kv-orange">' + aperte + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Lavori Presi</div><div class="kpi-v kv-green">' + presi + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Agenti</div><div class="kpi-v">' + agenti.length + "</div></div>";
-  h += "</div>";
-
-  /* Toolbar */
-  h += '<div class="fjb mb12">';
-  h += '<div class="search-bar" style="flex:1;max-width:400px">';
-  h += '<i data-lucide="search" style="width:14px;height:14px" class="search-icon"></i>';
-  h += '<input type="text" placeholder="Cerca offerte..." id="dash-search" /></div>';
-  h += '<div class="fac gap8">';
-  h += '<button class="btn btn-primary" id="btn-nuova"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuova Offerta</button>';
-  h += '<button class="btn btn-sec" id="btn-riga"><i data-lucide="rows-3" style="width:14px;height:14px"></i> Crea Riga</button>';
-  h += '<button class="btn btn-sec" id="btn-csv"><i data-lucide="download" style="width:14px;height:14px"></i> Csv</button>';
-  h += "</div></div>";
-
-  /* Table */
-  h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
-  var cols = ["N.", "Data", "Cliente", "Condominio", "Via", "Riferimento", "Agente", "Fornitura", "Care", "Lettura", "Stato", "Azioni"];
-  cols.forEach(function(label) {
-    h += "<th>" + label + "</th>";
-  });
-  h += "</tr></thead><tbody>";
-
-  if (filtered.length === 0) {
-    h += '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted)">Nessuna offerta</td></tr>';
-  }
-
-  filtered.forEach(function(o) {
-    var via = o.via || "";
-    if (o.citta) via += (via ? ", " : "") + (o.cap ? o.cap + " " : "") + o.citta;
-    var si = statoInfo(o.stato);
-    var hasDocx = !!o.path_docx;
-    var hasPdf = !!o.path_pdf;
-
-    h += '<tr data-oid="' + o.id + '">';
-    h += '<td class="mono">' + (o.numero || "\u2014") + "</td>";
-    h += "<td>" + fmtData(o.data_creazione) + "</td>";
-    h += '<td class="editable" data-field="nome_studio">' + esc(o.nome_studio) + "</td>";
-    h += '<td class="editable" data-field="nome_condominio">' + esc(o.nome_condominio || "") + "</td>";
-    h += '<td class="editable" data-field="via">' + esc(via) + "</td>";
-    h += '<td class="editable" data-field="riferimento">' + esc(o.riferimento || "") + "</td>";
-    h += '<td class="editable" data-field="agente_id">' + agenteHtml(o.agente_id) + "</td>";
-    h += '<td class="num editable" data-field="prezzo_fornitura">' + fmt(o.prezzo_fornitura) + "</td>";
-    h += '<td class="num editable" data-field="prezzo_care">' + fmt(o.prezzo_care) + "</td>";
-    h += '<td class="num editable" data-field="canone_lettura">' + fmt(o.canone_lettura) + "</td>";
-    h += '<td><span class="stato-badge ' + si.cls + '" data-stato-id="' + o.id + '">' + si.label + "</span></td>";
-    h += "<td><div class='act-btns'>";
-
-    if (hasDocx) {
-      h += '<button class="act-btn act-gen done">&#9989;</button>';
-    } else {
-      h += '<button class="act-btn act-gen" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i></button>';
-    }
-    h += '<button class="act-btn act-docx" data-open="' + esc(o.path_docx || "") + '" ' + (hasDocx ? "" : "disabled") + '><i data-lucide="file-text" style="width:12px;height:12px"></i></button>';
-    h += '<button class="act-btn act-pdf" data-open="' + esc(o.path_pdf || "") + '" ' + (hasPdf ? "" : "disabled") + '><i data-lucide="file" style="width:12px;height:12px"></i></button>';
-    h += '<button class="act-btn act-mail" data-mail-id="' + o.id + '"><i data-lucide="mail" style="width:12px;height:12px"></i></button>';
-    h += '<button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>';
-
-    h += "</div></td></tr>";
-  });
-
-  h += "</tbody></table></div></div>";
-  c.innerHTML = h;
-  icons();
-  attachDashboardEvents(c);
+  var tasso = tot > 0 ? (prese / tot * 100).toFixed(1) : "\u2014";
+  return { tot: tot, aperte: aperte, prese: prese, valPreso: valPreso, valPipeline: valPipeline, tasso: tasso };
 }
 
-function attachDashboardEvents(c) {
-  /* Search */
-  var searchInp = document.getElementById("dash-search");
-  if (searchInp) {
-    searchInp.value = searchTerm;
-    searchInp.addEventListener("input", function() {
-      searchTerm = this.value;
-      buildDashboard(c);
-    });
-  }
-
-  /* Toolbar buttons */
-  var btnNuova = document.getElementById("btn-nuova");
-  if (btnNuova) btnNuova.addEventListener("click", function() { navigate("nuova"); });
-
-  var btnRiga = document.getElementById("btn-riga");
-  if (btnRiga) btnRiga.addEventListener("click", function() {
-    api("POST", "/api/offerte", { nome_studio: "", template: "E40", stato: "richiamato" }).then(function() {
-      renderDashboard(c);
-    });
-  });
-
-  var btnCsv = document.getElementById("btn-csv");
-  if (btnCsv) btnCsv.addEventListener("click", esportaCsv);
-
-  /* Inline editing on double click */
-  c.querySelectorAll("td.editable").forEach(function(td) {
-    td.addEventListener("dblclick", function() {
-      var oid = parseInt(td.parentElement.getAttribute("data-oid"));
-      var field = td.getAttribute("data-field");
-      if (field === "agente_id") {
-        editAgente(td, oid);
-      } else {
-        editCell(td, oid, field);
-      }
-    });
-  });
-
-  /* Stato badges */
-  c.querySelectorAll("[data-stato-id]").forEach(function(badge) {
-    badge.addEventListener("click", function(e) {
-      e.stopPropagation();
-      showStatoDropdown(badge, parseInt(badge.getAttribute("data-stato-id")));
-    });
-  });
-
-  /* Action buttons */
-  c.querySelectorAll("[data-gen-id]").forEach(function(btn) {
-    btn.addEventListener("click", function() { doGenera(parseInt(btn.getAttribute("data-gen-id"))); });
-  });
-  c.querySelectorAll("[data-open]").forEach(function(btn) {
-    btn.addEventListener("click", function() {
-      var p = btn.getAttribute("data-open");
-      if (p) window.open(p, "_blank");
-    });
-  });
-  c.querySelectorAll("[data-mail-id]").forEach(function(btn) {
-    btn.addEventListener("click", function() { doMail(parseInt(btn.getAttribute("data-mail-id"))); });
-  });
-  c.querySelectorAll("[data-del-id]").forEach(function(btn) {
-    btn.addEventListener("click", function() {
-      var id = parseInt(btn.getAttribute("data-del-id"));
-      var num = btn.getAttribute("data-del-num") || id;
-      showModal("Conferma", "Eliminare offerta N. " + num + "?", [
-        { label: "Annulla", cls: "btn btn-sec", fn: closeModal },
-        { label: "Elimina", cls: "btn btn-danger", fn: function() { closeModal(); api("DELETE", "/api/offerte/" + id).then(function() { renderDashboard(c); }); } }
-      ]);
-    });
-  });
+function fmtEurDash(val) {
+  if (!val && val !== 0) return "\u2014";
+  return "\u20ac " + Math.round(val).toLocaleString("it-IT");
 }
 
-function filterOfferte() {
+function dashFilterSort() {
   var list = offerte.slice();
-  if (searchTerm) {
-    var q = searchTerm.toLowerCase();
+  var f = dashFilters;
+
+  if (f.stati && f.stati.length > 0) {
+    list = list.filter(function(o) { return f.stati.indexOf(o.stato) >= 0; });
+  }
+  if (f.agente_id) {
+    list = list.filter(function(o) { return o.agente_id === parseInt(f.agente_id); });
+  }
+  if (f.template) {
+    list = list.filter(function(o) { return o.template === f.template; });
+  }
+  if (f.q) {
+    var q = f.q.toLowerCase();
     list = list.filter(function(o) {
-      return [o.numero, o.nome_studio, o.nome_condominio, o.via, o.citta, o.riferimento, o.stato].join(" ").toLowerCase().indexOf(q) >= 0;
+      return [o.numero, o.nome_studio, o.nome_condominio, o.citta].join(" ").toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  if (f.dal) {
+    list = list.filter(function(o) { return o.data_creazione && o.data_creazione >= f.dal; });
+  }
+  if (f.al) {
+    list = list.filter(function(o) { return o.data_creazione && o.data_creazione <= f.al + " 23:59:59"; });
+  }
+
+  if (dashSort.col) {
+    var col = dashSort.col, dir = dashSort.dir === "asc" ? 1 : -1;
+    list.sort(function(a, b) {
+      var va = a[col], vb = b[col];
+      if (va === null || va === undefined) va = "";
+      if (vb === null || vb === undefined) vb = "";
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
     });
   }
   return list;
 }
 
+function daysDiff(d) {
+  if (!d) return null;
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var dt = new Date(d); dt.setHours(0, 0, 0, 0);
+  return Math.round((now - dt) / 86400000);
+}
+
+function buildDashboard(c) {
+  var filtered = dashFilterSort();
+  var kpi = calcKpi(filtered);
+  var selCount = Object.keys(dashSelected).length;
+
+  // Pagination
+  var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (dashPage >= totalPages) dashPage = totalPages - 1;
+  var pageItems = filtered.slice(dashPage * PAGE_SIZE, (dashPage + 1) * PAGE_SIZE);
+
+  var h = "";
+
+  /* KPI */
+  h += '<div class="g3 mb12">';
+  h += '<div class="kpi"><div class="kpi-l">Totale Offerte</div><div class="kpi-v kv-blue">' + kpi.tot + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v" style="color:#EF9F27">' + kpi.aperte + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Lavori Presi</div><div class="kpi-v" style="color:#639922">' + kpi.prese + "</div></div>";
+  h += "</div>";
+  h += '<div class="g3 mb20">';
+  h += '<div class="kpi"><div class="kpi-l">Valore Preso</div><div class="kpi-v" style="color:#639922">' + fmtEurDash(kpi.valPreso) + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Valore Pipeline</div><div class="kpi-v" style="color:#EF9F27">' + fmtEurDash(kpi.valPipeline) + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Tasso Conversione</div><div class="kpi-v kv-blue">' + kpi.tasso + (kpi.tasso !== "\u2014" ? "%" : "") + "</div></div>";
+  h += "</div>";
+
+  /* Stato filter tabs */
+  h += '<div class="fac gap4 mb12" id="stato-tabs">';
+  var stTabs = [
+    { val: "", label: "Tutte" },
+    { val: "in_attesa_assemblea", label: "In Attesa", color: "#0ea5e9" },
+    { val: "richiamato", label: "Richiamato", color: "#f59e0b" },
+    { val: "preso_lavoro", label: "Preso", color: "#22c55e" },
+    { val: "perso", label: "Perso", color: "#ef4444" },
+    { val: "rimandato", label: "Rimandato", color: "#7c3aed" }
+  ];
+  stTabs.forEach(function(t) {
+    var active = t.val === "" ? (dashFilters.stati.length === 0) : (dashFilters.stati.indexOf(t.val) >= 0);
+    var style = active && t.color ? "background:" + t.color + ";color:#fff;border-color:" + t.color : "";
+    h += '<button class="btn btn-sm btn-sec" data-stato-filter="' + t.val + '" style="' + style + '">' + t.label + "</button>";
+  });
+  h += "</div>";
+
+  /* Filter bar */
+  h += '<div class="fac gap8 mb12 flex-wrap" style="flex-wrap:wrap">';
+  h += '<select class="inp" id="f-agente" style="width:150px;padding:5px 8px;font-size:.75rem"><option value="">Tutti gli agenti</option>';
+  agenti.forEach(function(a) {
+    h += '<option value="' + a.id + '"' + (dashFilters.agente_id == a.id ? " selected" : "") + ">" + esc(a.nome + " " + a.cognome) + "</option>";
+  });
+  h += "</select>";
+  h += '<select class="inp" id="f-template" style="width:120px;padding:5px 8px;font-size:.75rem"><option value="">Tutti template</option><option value="E40"' + (dashFilters.template === "E40" ? " selected" : "") + '>E-ITN40</option><option value="Q55"' + (dashFilters.template === "Q55" ? " selected" : "") + ">Q5.5</option></select>";
+  h += '<input class="inp" id="f-search" placeholder="Cerca..." value="' + esc(dashFilters.q) + '" style="width:180px;padding:5px 8px;font-size:.75rem" />';
+  h += '<input class="inp" id="f-dal" type="date" value="' + (dashFilters.dal || "") + '" style="width:130px;padding:5px 8px;font-size:.75rem" title="Dal" />';
+  h += '<input class="inp" id="f-al" type="date" value="' + (dashFilters.al || "") + '" style="width:130px;padding:5px 8px;font-size:.75rem" title="Al" />';
+  h += '<button class="btn btn-ghost btn-sm" id="f-reset" title="Reset filtri"><i data-lucide="x" style="width:14px;height:14px"></i></button>';
+  h += "</div>";
+
+  /* Bulk + actions bar */
+  h += '<div class="fjb mb8">';
+  h += '<div class="fac gap8">';
+  if (selCount > 0) {
+    h += '<span style="font-size:.78rem;font-weight:700;color:var(--blue)">' + selCount + " selezionate</span>";
+    h += '<button class="btn btn-sm btn-sec" id="bulk-desel">Deseleziona</button>';
+    h += '<button class="btn btn-sm btn-sec" id="bulk-csv">Esporta selezione</button>';
+  }
+  h += "</div>";
+  h += '<div class="fac gap8">';
+  h += '<button class="btn btn-primary btn-sm" id="btn-nuova"><i data-lucide="plus" style="width:14px;height:14px"></i> Crea Offerta</button>';
+  h += '<button class="btn btn-sec btn-sm" id="btn-csv"><i data-lucide="download" style="width:14px;height:14px"></i> Esporta CSV</button>';
+  h += "</div></div>";
+
+  /* Table */
+  h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
+  h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
+
+  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, importo: 1, stato: 1, giorni: 1 };
+  var colDefs = [
+    { key: "numero", w: "90px" }, { key: "data_creazione", w: "100px" },
+    { key: "nome_studio", w: "180px" }, { key: "nome_condominio", w: "160px" },
+    { key: "template", w: "90px" }, { key: "agente_id", w: "120px" },
+    { key: "importo", w: "100px", cls: "r" }, { key: "stato", w: "130px" },
+    { key: "giorni", w: "80px" }, { key: "azioni", w: "120px" }
+  ];
+  colDefs.forEach(function(cd) {
+    if (dashVisibleCols.indexOf(cd.key) < 0) return;
+    var label = COL_LABELS[cd.key] || cd.key;
+    var arrow = "";
+    if (sortable[cd.key]) {
+      if (dashSort.col === cd.key) arrow = dashSort.dir === "asc" ? " \u2191" : " \u2193";
+      h += '<th style="width:' + cd.w + ';cursor:pointer" data-sort-col="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + "</th>";
+    } else {
+      h += '<th style="width:' + cd.w + '" class="' + (cd.cls || "") + '">' + label + "</th>";
+    }
+  });
+  h += "</tr></thead><tbody>";
+
+  if (pageItems.length === 0) {
+    h += '<tr><td colspan="' + (colDefs.length + 1) + '" style="text-align:center;padding:30px;color:var(--muted)">Nessuna offerta</td></tr>';
+  }
+
+  pageItems.forEach(function(o) {
+    var imp = (o.prezzo_fornitura || 0) + (o.prezzo_care || 0) + (o.canone_lettura || 0);
+    var si = statoInfo(o.stato);
+    var isOpen = o.stato !== "preso_lavoro" && o.stato !== "perso" && o.stato !== "rimandato";
+    var gg = isOpen ? daysDiff(o.data_creazione) : null;
+    var ggHtml = "\u2014";
+    if (gg !== null) {
+      var gcls = gg < 15 ? "giorni-verde" : (gg <= 30 ? "giorni-arancione" : "giorni-rosso");
+      ggHtml = '<span class="giorni-badge ' + gcls + '">' + gg + " gg</span>";
+      if (gg > 30) ggHtml += '<span class="pulse-dot"></span>';
+    }
+    var isSel = !!dashSelected[o.id];
+    var isExp = dashExpanded === o.id;
+    var urgentCls = (gg !== null && gg > 30) ? " row-urgent" : "";
+
+    h += '<tr data-oid="' + o.id + '" class="' + (isSel ? "row-selected" : "") + urgentCls + '">';
+    h += '<td><input type="checkbox" class="row-sel" data-sel-id="' + o.id + '"' + (isSel ? " checked" : "") + " /></td>";
+
+    if (dashVisibleCols.indexOf("numero") >= 0) h += '<td class="mono">' + (o.numero || "\u2014") + "</td>";
+    if (dashVisibleCols.indexOf("data_creazione") >= 0) h += "<td>" + fmtData(o.data_creazione) + "</td>";
+    if (dashVisibleCols.indexOf("nome_studio") >= 0) h += '<td class="editable" data-field="nome_studio">' + esc(o.nome_studio || "") + "</td>";
+    if (dashVisibleCols.indexOf("nome_condominio") >= 0) h += '<td class="editable" data-field="nome_condominio">' + esc(o.nome_condominio || "") + "</td>";
+    if (dashVisibleCols.indexOf("template") >= 0) h += '<td class="editable" data-field="template">' + esc(o.template === "E40" ? "E-ITN40" : (o.template === "Q55" ? "Q5.5" : (o.template || ""))) + "</td>";
+    if (dashVisibleCols.indexOf("agente_id") >= 0) h += '<td class="editable" data-field="agente_id">' + (o.agente_id ? agenteHtml(o.agente_id) : '<span style="color:var(--muted);font-size:.72rem">Non assegnato</span>') + "</td>";
+    if (dashVisibleCols.indexOf("importo") >= 0) h += '<td class="num editable" data-field="importo">' + (imp ? fmtEurDash(imp) : '<span style="color:var(--muted)">\u2014</span>') + "</td>";
+    if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
+    if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
+    if (dashVisibleCols.indexOf("azioni") >= 0) {
+      h += '<td><div class="act-btns">';
+      h += '<button class="act-btn act-docx" data-dup-id="' + o.id + '" title="Duplica"><i data-lucide="copy" style="width:12px;height:12px"></i></button>';
+      h += '<button class="act-btn act-mail" data-mail-id="' + o.id + '" title="Email"><i data-lucide="mail" style="width:12px;height:12px"></i></button>';
+      h += '<button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>';
+      h += "</div></td>";
+    }
+    h += "</tr>";
+
+    /* Expanded detail row */
+    if (isExp) {
+      var hasDocx = !!o.path_docx, hasPdf = !!o.path_pdf;
+      h += '<tr class="row-expanded"><td colspan="' + (colDefs.length + 1) + '">';
+      h += '<div class="expand-panel">';
+      h += '<div class="g3 mb12">';
+      h += "<div><strong>Indirizzo:</strong> " + esc((o.via || "") + (o.citta ? ", " + (o.cap || "") + " " + o.citta : "")) + "</div>";
+      h += "<div><strong>Note:</strong> " + esc(o.note || "Nessuna nota") + "</div>";
+      h += "<div><strong>Email:</strong> " + esc(o.email_studio || "\u2014") + "</div>";
+      h += "</div>";
+      h += '<div class="fac gap6">';
+      h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
+      if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
+      if (hasPdf) h += '<button class="btn btn-sm btn-pdf" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
+      h += '<button class="btn btn-sm btn-sec" data-dup-id="' + o.id + '"><i data-lucide="copy" style="width:12px;height:12px"></i> Duplica</button>';
+      h += '<button class="btn btn-sm btn-sec" data-mail-id="' + o.id + '"><i data-lucide="mail" style="width:12px;height:12px"></i> Email</button>';
+      h += '<button class="btn btn-sm btn-danger" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '"><i data-lucide="trash-2" style="width:12px;height:12px"></i> Elimina</button>';
+      h += "</div></div></td></tr>";
+    }
+  });
+
+  h += "</tbody></table></div>";
+
+  /* Pagination */
+  if (totalPages > 1) {
+    h += '<div class="fac gap6" style="padding:10px 14px;justify-content:center">';
+    h += '<button class="btn btn-sm btn-ghost" id="pg-prev"' + (dashPage === 0 ? " disabled" : "") + '>&lt; Prec</button>';
+    for (var p = 0; p < totalPages; p++) {
+      h += '<button class="btn btn-sm ' + (p === dashPage ? "btn-primary" : "btn-ghost") + '" data-pg="' + p + '">' + (p + 1) + "</button>";
+    }
+    h += '<button class="btn btn-sm btn-ghost" id="pg-next"' + (dashPage >= totalPages - 1 ? " disabled" : "") + '>Succ &gt;</button>';
+    h += "</div>";
+  }
+  h += "</div>";
+
+  c.innerHTML = h;
+  icons();
+  attachDashEvents(c);
+}
+
+/* ─── Dashboard events ─── */
+
+function attachDashEvents(c) {
+  var searchTimer = null;
+
+  /* Stato filter tabs */
+  c.querySelectorAll("[data-stato-filter]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var val = this.getAttribute("data-stato-filter");
+      if (val === "") { dashFilters.stati = []; }
+      else {
+        var idx = dashFilters.stati.indexOf(val);
+        if (idx >= 0) dashFilters.stati.splice(idx, 1);
+        else dashFilters.stati.push(val);
+      }
+      dashPage = 0;
+      saveDashFilters();
+      buildDashboard(c);
+    });
+  });
+
+  /* Filters */
+  var fAgente = document.getElementById("f-agente");
+  if (fAgente) fAgente.addEventListener("change", function() { dashFilters.agente_id = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
+  var fTemplate = document.getElementById("f-template");
+  if (fTemplate) fTemplate.addEventListener("change", function() { dashFilters.template = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
+  var fSearch = document.getElementById("f-search");
+  if (fSearch) fSearch.addEventListener("input", function() {
+    var val = this.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() { dashFilters.q = val; dashPage = 0; saveDashFilters(); buildDashboard(c); }, 300);
+  });
+  var fDal = document.getElementById("f-dal");
+  if (fDal) fDal.addEventListener("change", function() { dashFilters.dal = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
+  var fAl = document.getElementById("f-al");
+  if (fAl) fAl.addEventListener("change", function() { dashFilters.al = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
+  var fReset = document.getElementById("f-reset");
+  if (fReset) fReset.addEventListener("click", function() {
+    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "" };
+    dashSort = { col: null, dir: null };
+    dashPage = 0;
+    localStorage.removeItem("dashFilters");
+    buildDashboard(c);
+  });
+
+  /* Toolbar */
+  var btnNuova = document.getElementById("btn-nuova");
+  if (btnNuova) btnNuova.addEventListener("click", function() { navigate("nuova"); });
+  var btnCsv = document.getElementById("btn-csv");
+  if (btnCsv) btnCsv.addEventListener("click", function() { esportaCsv(offerte); });
+  var bulkDesel = document.getElementById("bulk-desel");
+  if (bulkDesel) bulkDesel.addEventListener("click", function() { dashSelected = {}; buildDashboard(c); });
+  var bulkCsv = document.getElementById("bulk-csv");
+  if (bulkCsv) bulkCsv.addEventListener("click", function() {
+    var sel = offerte.filter(function(o) { return !!dashSelected[o.id]; });
+    esportaCsv(sel);
+  });
+
+  /* Select all */
+  var selAll = document.getElementById("sel-all");
+  if (selAll) selAll.addEventListener("change", function() {
+    var checked = this.checked;
+    var filtered = dashFilterSort();
+    var page = filtered.slice(dashPage * PAGE_SIZE, (dashPage + 1) * PAGE_SIZE);
+    page.forEach(function(o) { if (checked) dashSelected[o.id] = true; else delete dashSelected[o.id]; });
+    buildDashboard(c);
+  });
+
+  /* Row checkboxes */
+  c.querySelectorAll(".row-sel").forEach(function(cb) {
+    cb.addEventListener("change", function() {
+      var id = parseInt(this.getAttribute("data-sel-id"));
+      if (this.checked) dashSelected[id] = true; else delete dashSelected[id];
+      buildDashboard(c);
+    });
+  });
+
+  /* Sort */
+  c.querySelectorAll("[data-sort-col]").forEach(function(th) {
+    th.addEventListener("click", function() {
+      var col = this.getAttribute("data-sort-col");
+      if (dashSort.col === col) {
+        if (dashSort.dir === "asc") dashSort.dir = "desc";
+        else if (dashSort.dir === "desc") { dashSort.col = null; dashSort.dir = null; }
+      } else { dashSort.col = col; dashSort.dir = "asc"; }
+      buildDashboard(c);
+    });
+  });
+
+  /* Row click to expand */
+  c.querySelectorAll("tr[data-oid]").forEach(function(tr) {
+    tr.addEventListener("click", function(e) {
+      if (e.target.closest(".editable") || e.target.closest(".act-btns") || e.target.closest(".stato-badge") || e.target.closest("input[type=checkbox]")) return;
+      var oid = parseInt(this.getAttribute("data-oid"));
+      dashExpanded = dashExpanded === oid ? null : oid;
+      buildDashboard(c);
+    });
+  });
+
+  /* Inline editing */
+  c.querySelectorAll("td.editable").forEach(function(td) {
+    td.addEventListener("dblclick", function(e) {
+      e.stopPropagation();
+      var oid = parseInt(td.parentElement.getAttribute("data-oid"));
+      var field = td.getAttribute("data-field");
+      if (field === "agente_id") editAgente(td, oid, c);
+      else if (field === "template") editTemplate(td, oid, c);
+      else if (field === "importo") editImporto(td, oid, c);
+      else editCell(td, oid, field, c);
+    });
+  });
+
+  /* Stato click */
+  c.querySelectorAll("[data-stato-click]").forEach(function(badge) {
+    badge.addEventListener("click", function(e) {
+      e.stopPropagation();
+      showStatoDropdown(badge, parseInt(badge.getAttribute("data-stato-click")), c);
+    });
+  });
+
+  /* Actions */
+  c.querySelectorAll("[data-gen-id]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) { e.stopPropagation(); doGenera(parseInt(btn.getAttribute("data-gen-id")), c); });
+  });
+  c.querySelectorAll("[data-open]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) { e.stopPropagation(); var p = btn.getAttribute("data-open"); if (p) window.open(p, "_blank"); });
+  });
+  c.querySelectorAll("[data-mail-id]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) { e.stopPropagation(); doMail(parseInt(btn.getAttribute("data-mail-id"))); });
+  });
+  c.querySelectorAll("[data-del-id]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var id = parseInt(btn.getAttribute("data-del-id"));
+      var num = btn.getAttribute("data-del-num") || id;
+      showModal("Conferma", "Eliminare offerta N. " + num + "?", [
+        { label: "Annulla", cls: "btn btn-sec", fn: closeModal },
+        { label: "Elimina", cls: "btn btn-danger", fn: function() { closeModal(); api("DELETE", "/api/offerte/" + id).then(function() { renderDashboard(c); toast("Offerta eliminata", "ok"); }); } }
+      ]);
+    });
+  });
+  c.querySelectorAll("[data-dup-id]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var id = parseInt(btn.getAttribute("data-dup-id"));
+      api("POST", "/api/offerte/" + id + "/duplica").then(function(res) {
+        toast("Offerta duplicata: N. " + (res.numero || ""), "ok");
+        renderDashboard(c);
+      });
+    });
+  });
+
+  /* Pagination */
+  var pgPrev = document.getElementById("pg-prev");
+  if (pgPrev) pgPrev.addEventListener("click", function() { if (dashPage > 0) { dashPage--; buildDashboard(c); } });
+  var pgNext = document.getElementById("pg-next");
+  if (pgNext) pgNext.addEventListener("click", function() { dashPage++; buildDashboard(c); });
+  c.querySelectorAll("[data-pg]").forEach(function(btn) {
+    btn.addEventListener("click", function() { dashPage = parseInt(this.getAttribute("data-pg")); buildDashboard(c); });
+  });
+}
+
 /* ─── Inline editing ─── */
 
-function editCell(td, oid, field) {
+function editCell(td, oid, field, cont) {
   if (td.querySelector("input")) return;
   var off = offerte.find(function(o) { return o.id === oid; });
   var val = off ? (off[field] || "") : "";
-
   var inp = document.createElement("input");
   inp.className = "cell-edit";
   inp.value = val;
@@ -307,35 +567,72 @@ function editCell(td, oid, field) {
   inp.select();
 
   function save() {
-    var v = inp.value;
     var data = {};
-    if (field === "prezzo_fornitura" || field === "prezzo_care" || field === "canone_lettura") {
-      data[field] = parseFloat(v.replace(",", ".")) || null;
-    } else {
-      data[field] = v;
-    }
+    data[field] = inp.value;
     api("PUT", "/api/offerte/" + oid, data).then(function() {
-      renderDashboard(document.getElementById("content"));
+      toast("Salvato", "ok");
+      renderDashboard(cont);
     });
   }
   inp.addEventListener("keydown", function(e) {
     if (e.key === "Enter") { e.preventDefault(); save(); }
-    if (e.key === "Escape") renderDashboard(document.getElementById("content"));
+    if (e.key === "Escape") buildDashboard(cont);
   });
   inp.addEventListener("blur", save);
 }
 
-function editAgente(td, oid) {
+function editImporto(td, oid, cont) {
+  if (td.querySelector("input")) return;
+  var off = offerte.find(function(o) { return o.id === oid; });
+  var imp = off ? ((off.prezzo_fornitura || 0) + (off.prezzo_care || 0) + (off.canone_lettura || 0)) : 0;
+  var inp = document.createElement("input");
+  inp.className = "cell-edit";
+  inp.type = "number";
+  inp.value = imp || "";
+  td.textContent = "";
+  td.appendChild(inp);
+  inp.focus();
+  inp.select();
+
+  function save() {
+    var v = parseFloat(inp.value) || 0;
+    api("PUT", "/api/offerte/" + oid, { importo: v, prezzo_fornitura: v }).then(function() {
+      toast("Salvato", "ok");
+      renderDashboard(cont);
+    });
+  }
+  inp.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") { e.preventDefault(); save(); }
+    if (e.key === "Escape") buildDashboard(cont);
+  });
+  inp.addEventListener("blur", save);
+}
+
+function editTemplate(td, oid, cont) {
   if (td.querySelector("select")) return;
   var off = offerte.find(function(o) { return o.id === oid; });
+  var sel = document.createElement("select");
+  sel.className = "cell-edit";
+  sel.innerHTML = '<option value="E40"' + (off && off.template === "E40" ? " selected" : "") + '>E-ITN40</option><option value="Q55"' + (off && off.template === "Q55" ? " selected" : "") + ">Q5.5</option>";
+  td.textContent = "";
+  td.appendChild(sel);
+  sel.focus();
+  function save() {
+    api("PUT", "/api/offerte/" + oid, { template: sel.value }).then(function() { toast("Salvato", "ok"); renderDashboard(cont); });
+  }
+  sel.addEventListener("change", save);
+  sel.addEventListener("blur", save);
+}
 
+function editAgente(td, oid, cont) {
+  if (td.querySelector("select")) return;
+  var off = offerte.find(function(o) { return o.id === oid; });
   var sel = document.createElement("select");
   sel.className = "cell-edit";
   var optNone = document.createElement("option");
   optNone.value = "";
-  optNone.textContent = "\u2014 Nessuno";
+  optNone.textContent = "Non assegnato";
   sel.appendChild(optNone);
-
   agenti.forEach(function(a) {
     var opt = document.createElement("option");
     opt.value = a.id;
@@ -343,29 +640,26 @@ function editAgente(td, oid) {
     if (off && off.agente_id === a.id) opt.selected = true;
     sel.appendChild(opt);
   });
-
   td.textContent = "";
   td.appendChild(sel);
   sel.focus();
-
   function save() {
-    var v = sel.value ? parseInt(sel.value) : null;
-    api("PUT", "/api/offerte/" + oid, { agente_id: v }).then(function() {
-      renderDashboard(document.getElementById("content"));
-    });
+    api("PUT", "/api/offerte/" + oid, { agente_id: sel.value ? parseInt(sel.value) : null }).then(function() { toast("Salvato", "ok"); renderDashboard(cont); });
   }
   sel.addEventListener("change", save);
   sel.addEventListener("blur", save);
 }
 
-/* ─── Stato dropdown ─── */
+/* ─── Stato dropdown with motivo perdita ─── */
 
-function showStatoDropdown(badge, oid) {
+function showStatoDropdown(badge, oid, cont) {
   closeStatoDropdown();
+  var oldOff = offerte.find(function(o) { return o.id === oid; });
+  var oldStato = oldOff ? oldOff.stato : "";
+
   var dd = document.createElement("div");
   dd.className = "stato-dropdown";
   dd.id = "stato-dd";
-
   STATI.forEach(function(s) {
     var row = document.createElement("div");
     row.className = "stato-option";
@@ -373,17 +667,19 @@ function showStatoDropdown(badge, oid) {
     row.addEventListener("click", function(e) {
       e.stopPropagation();
       closeStatoDropdown();
-      api("PUT", "/api/offerte/" + oid, { stato: s.value }).then(function() {
-        renderDashboard(document.getElementById("content"));
-      });
+      if (s.value === "perso") {
+        showMotivoPerdita(oid, oldStato, cont);
+      } else {
+        api("PUT", "/api/offerte/" + oid, { stato: s.value }).then(function() {
+          toast("Stato aggiornato: " + s.label, "ok");
+          renderDashboard(cont);
+        });
+      }
     });
     dd.appendChild(row);
   });
-
   badge.parentElement.appendChild(dd);
-  setTimeout(function() {
-    document.addEventListener("click", closeStatoDropdown, { once: true });
-  }, 10);
+  setTimeout(function() { document.addEventListener("click", closeStatoDropdown, { once: true }); }, 10);
 }
 
 function closeStatoDropdown() {
@@ -391,21 +687,53 @@ function closeStatoDropdown() {
   if (dd) dd.remove();
 }
 
+function showMotivoPerdita(oid, oldStato, cont) {
+  var motivi = ["Prezzo troppo alto", "Competitor", "Assemblea non approva", "Cliente non risponde", "Rimandato", "Cambio amministratore", "Altro"];
+  showModal("Motivo Perdita", "", []);
+  var body = document.querySelector("#modal-overlay .modal-body");
+  if (!body) return;
+  var bh = '<div class="form-field"><label>Motivo principale *</label><select class="inp" id="mp-motivo">';
+  motivi.forEach(function(m) { bh += "<option>" + m + "</option>"; });
+  bh += '</select></div><div class="form-field"><label>Note aggiuntive</label><textarea class="inp" id="mp-note" rows="2"></textarea></div>';
+  body.innerHTML = bh;
+
+  var footer = document.querySelector("#modal-overlay .modal-footer");
+  if (footer) {
+    footer.innerHTML = "";
+    var btnCancel = document.createElement("button");
+    btnCancel.className = "btn btn-sec";
+    btnCancel.textContent = "Annulla";
+    btnCancel.addEventListener("click", closeModal);
+    var btnConfirm = document.createElement("button");
+    btnConfirm.className = "btn btn-danger";
+    btnConfirm.textContent = "Conferma perdita";
+    btnConfirm.addEventListener("click", function() {
+      var motivo = document.getElementById("mp-motivo").value;
+      var note = document.getElementById("mp-note").value;
+      api("PUT", "/api/offerte/" + oid, { stato: "perso", motivo_perdita: motivo, note_perdita: note }).then(function() {
+        closeModal();
+        toast("Stato aggiornato: Perso", "error");
+        renderDashboard(cont);
+      });
+    });
+    footer.appendChild(btnCancel);
+    footer.appendChild(btnConfirm);
+  }
+}
+
 /* ─── Actions ─── */
 
-function doGenera(id) {
-  closeModal();
+function doGenera(id, cont) {
   api("POST", "/api/genera", { id: id }).then(function(res) {
     if (res.ok) {
-      var msg = "Offerta N. " + res.numero + " generata!";
-      if (res.pdf_error) msg += " (PDF non disponibile)";
+      toast("Offerta N. " + res.numero + " generata!", "ok");
       var btns = [{ label: "Chiudi", cls: "btn btn-sec", fn: closeModal }];
-      if (res.docx_url) btns.push({ label: "Apri DOCX", cls: "btn btn-primary", fn: function() { window.open(res.docx_url, "_blank"); } });
-      if (res.pdf_url) btns.push({ label: "Apri PDF", cls: "btn btn-pdf", fn: function() { window.open(res.pdf_url, "_blank"); } });
-      showModal("Generazione Completata", msg, btns);
-      renderDashboard(document.getElementById("content"));
+      if (res.docx_url) btns.push({ label: "DOCX", cls: "btn btn-primary", fn: function() { window.open(res.docx_url, "_blank"); } });
+      if (res.pdf_url) btns.push({ label: "PDF", cls: "btn btn-pdf", fn: function() { window.open(res.pdf_url, "_blank"); } });
+      showModal("Generazione Completata", "Offerta N. " + res.numero + " generata" + (res.pdf_error ? " (PDF non disponibile)" : ""), btns);
+      renderDashboard(cont || document.getElementById("content"));
     } else {
-      showModal("Errore", res.error || "Errore", [{ label: "Ok", cls: "btn btn-sec", fn: closeModal }]);
+      toast(res.error || "Errore generazione", "error");
     }
   });
 }
@@ -418,12 +746,14 @@ function doMail(id) {
   window.location.href = "mailto:" + (off.email_studio || "") + "?subject=" + subj + "&body=" + body;
 }
 
-function esportaCsv() {
-  var lines = ["Numero;Data;Cliente;Condominio;Via;Riferimento;Agente;Fornitura;Care;Lettura;Stato"];
-  offerte.forEach(function(o) {
+function esportaCsv(list) {
+  if (!list) list = offerte;
+  var lines = ["Numero;Data;Cliente;Condominio;Template;Agente;Importo;Stato"];
+  list.forEach(function(o) {
     var a = getAgente(o.agente_id);
     var an = a ? (a.nome + " " + a.cognome) : "";
-    lines.push([o.numero, o.data_creazione, o.nome_studio, o.nome_condominio, o.via, o.riferimento, an, o.prezzo_fornitura, o.prezzo_care, o.canone_lettura, o.stato].map(function(v) {
+    var imp = (o.prezzo_fornitura || 0) + (o.prezzo_care || 0) + (o.canone_lettura || 0);
+    lines.push([o.numero, o.data_creazione, o.nome_studio, o.nome_condominio, o.template, an, imp, o.stato].map(function(v) {
       return '"' + String(v || "").replace(/"/g, '""') + '"';
     }).join(";"));
   });
@@ -432,6 +762,33 @@ function esportaCsv() {
   a.href = URL.createObjectURL(blob);
   a.download = "offerte_ulteria.csv";
   a.click();
+  toast("CSV esportato", "info");
+}
+
+/* ─── Toast notifications ─── */
+
+function toast(msg, type) {
+  var container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:6px;align-items:flex-end";
+    document.body.appendChild(container);
+  }
+  var colors = { ok: "#639922", error: "#ef4444", info: "#009FE3" };
+  var t = document.createElement("div");
+  t.style.cssText = "padding:10px 16px;border-radius:8px;font-size:.82rem;font-weight:600;color:#fff;background:" + (colors[type] || colors.info) + ";box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .3s;max-width:320px;font-family:inherit";
+  t.textContent = msg;
+  container.appendChild(t);
+  requestAnimationFrame(function() { t.style.transform = "translateX(0)"; });
+
+  // Max 3 toasts
+  while (container.children.length > 3) container.removeChild(container.firstChild);
+
+  setTimeout(function() {
+    t.style.transform = "translateX(100%)";
+    setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 300);
+  }, 3000);
 }
 
 
