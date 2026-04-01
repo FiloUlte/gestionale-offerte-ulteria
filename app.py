@@ -104,6 +104,9 @@ def init_db():
     for stmt in [
         "ALTER TABLE offerte ADD COLUMN agente_id INTEGER REFERENCES agenti(id)",
         "ALTER TABLE agenti ADD COLUMN colore TEXT DEFAULT '#009FE3'",
+        "ALTER TABLE offerte ADD COLUMN motivo_perdita TEXT",
+        "ALTER TABLE offerte ADD COLUMN note_perdita TEXT",
+        "ALTER TABLE offerte ADD COLUMN importo REAL",
     ]:
         try:
             conn.execute(stmt)
@@ -263,9 +266,30 @@ def api_config_post():
 @app.route("/api/offerte", methods=["GET"])
 def api_offerte_list():
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM offerte ORDER BY id DESC"
-    ).fetchall()
+    sql = "SELECT * FROM offerte WHERE 1=1"
+    params = []
+    if request.args.get("agente_id"):
+        sql += " AND agente_id=?"
+        params.append(int(request.args["agente_id"]))
+    if request.args.get("stato"):
+        stati = request.args["stato"].split(",")
+        sql += " AND stato IN (" + ",".join("?" * len(stati)) + ")"
+        params.extend(stati)
+    if request.args.get("template"):
+        sql += " AND template=?"
+        params.append(request.args["template"])
+    if request.args.get("q"):
+        q = f"%{request.args['q']}%"
+        sql += " AND (nome_studio LIKE ? OR nome_condominio LIKE ? OR citta LIKE ? OR CAST(numero AS TEXT) LIKE ?)"
+        params.extend([q, q, q, q])
+    if request.args.get("dal"):
+        sql += " AND data_creazione>=?"
+        params.append(request.args["dal"])
+    if request.args.get("al"):
+        sql += " AND data_creazione<=?"
+        params.append(request.args["al"] + " 23:59:59")
+    sql += " ORDER BY id DESC"
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -321,6 +345,7 @@ def api_offerte_update(oid):
         "riferimento", "template", "prezzo_fornitura", "prezzo_care",
         "canone_lettura", "modalita", "totale", "stato", "email_studio",
         "note", "path_docx", "path_pdf", "numero", "agente_id",
+        "motivo_perdita", "note_perdita", "importo",
     ]
     sets = []
     vals = []
