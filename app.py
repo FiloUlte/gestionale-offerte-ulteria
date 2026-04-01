@@ -1155,6 +1155,297 @@ def api_agente_stats(aid):
     })
 
 
+# ── Step 8: API Etichette ────────────────────────────────────────────
+
+@app.route("/api/etichette", methods=["GET"])
+def api_etichette_list():
+    cat = request.args.get("categoria", "")
+    conn = get_db()
+    if cat:
+        rows = conn.execute(
+            "SELECT * FROM etichette WHERE categoria=? AND attiva=1 ORDER BY ordine, valore", (cat,)
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM etichette WHERE attiva=1 ORDER BY categoria, ordine, valore").fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/etichette", methods=["POST"])
+def api_etichette_create():
+    data = request.json
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO etichette (categoria, valore, colore_bg, colore_testo, ordine) VALUES (?,?,?,?,?)",
+        (data.get("categoria"), data.get("valore"), data.get("colore_bg", "#F4F9FD"),
+         data.get("colore_testo", "#0D1F35"), data.get("ordine", 0)),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM etichette WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/etichette/<int:eid>", methods=["PATCH"])
+def api_etichette_update(eid):
+    data = request.json
+    conn = get_db()
+    allowed = ["valore", "colore_bg", "colore_testo", "ordine", "attiva"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(f"{k}=?")
+            vals.append(data[k])
+    if sets:
+        vals.append(eid)
+        conn.execute(f"UPDATE etichette SET {','.join(sets)} WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM etichette WHERE id=?", (eid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/etichette/<int:eid>", methods=["DELETE"])
+def api_etichette_delete(eid):
+    conn = get_db()
+    conn.execute("DELETE FROM etichette WHERE id=?", (eid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# ── API: Oggetti ─────────────────────────────────────────────────────
+
+@app.route("/api/oggetti", methods=["POST"])
+def api_oggetti_create():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        """INSERT INTO oggetti (cliente_id, nome, via, civico, comune, provincia, cap,
+           tipo_oggetto, stato_pipeline, agente_id, natura, n_unita, n_scale, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (data.get("cliente_id"), data.get("nome"), data.get("via"), data.get("civico"),
+         data.get("comune"), data.get("provincia"), data.get("cap"),
+         data.get("tipo_oggetto", "condominio"), data.get("stato_pipeline", "prospect"),
+         data.get("agente_id"), data.get("natura"), data.get("n_unita"), data.get("n_scale"), now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM oggetti WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/oggetti/<int:oid>", methods=["GET"])
+def api_oggetti_detail(oid):
+    conn = get_db()
+    obj = conn.execute("SELECT * FROM oggetti WHERE id=?", (oid,)).fetchone()
+    if not obj:
+        conn.close()
+        return jsonify({"ok": False, "error": "Oggetto non trovato"}), 404
+    cliente = conn.execute("SELECT * FROM clienti WHERE id=?", (obj["cliente_id"],)).fetchone()
+    offerte = conn.execute(
+        "SELECT o.*, a.nome as agente_nome, a.cognome as agente_cognome, a.colore as agente_colore "
+        "FROM offerte o LEFT JOIN agenti a ON o.agente_id = a.id "
+        "WHERE o.oggetto_id=? ORDER BY o.data_creazione DESC", (oid,)
+    ).fetchall()
+    note = conn.execute(
+        "SELECT * FROM note_clienti WHERE oggetto_id=? ORDER BY created_at DESC", (oid,)
+    ).fetchall()
+    attivita = conn.execute(
+        "SELECT a.*, c.nome_studio as cliente_nome FROM attivita a "
+        "LEFT JOIN clienti c ON a.cliente_id = c.id "
+        "WHERE a.oggetto_id=? ORDER BY a.data_scadenza ASC", (oid,)
+    ).fetchall()
+    timeline = conn.execute(
+        "SELECT * FROM timeline_eventi WHERE oggetto_id=? ORDER BY created_at DESC LIMIT 50", (oid,)
+    ).fetchall()
+    conn.close()
+    return jsonify({
+        "ok": True,
+        "data": {
+            "oggetto": dict(obj),
+            "cliente": dict(cliente) if cliente else None,
+            "offerte": [dict(o) for o in offerte],
+            "note": [dict(n) for n in note],
+            "attivita": [dict(a) for a in attivita],
+            "timeline": [dict(t) for t in timeline],
+        }
+    })
+
+
+@app.route("/api/oggetti/<int:oid>", methods=["PATCH"])
+def api_oggetti_update(oid):
+    data = request.json
+    conn = get_db()
+    allowed = ["nome", "via", "civico", "comune", "provincia", "cap",
+               "tipo_oggetto", "stato_pipeline", "agente_id", "natura",
+               "n_unita", "n_scale", "motivo_perdita", "note_perdita",
+               "data_primo_contatto", "data_ultimo_contatto"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(f"{k}=?")
+            vals.append(data[k])
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sets.append("updated_at=?")
+    vals.append(now)
+    vals.append(oid)
+    conn.execute(f"UPDATE oggetti SET {','.join(sets)} WHERE id=?", vals)
+    conn.commit()
+    row = conn.execute("SELECT * FROM oggetti WHERE id=?", (oid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/oggetti/<int:oid>/note", methods=["POST"])
+def api_oggetti_add_note(oid):
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO note_clienti (oggetto_id, testo, autore, created_at) VALUES (?,?,?,?)",
+        (oid, data.get("testo", ""), data.get("autore", ""), now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM note_clienti WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/oggetti/<int:oid>/intestazione", methods=["POST"])
+def api_oggetti_intestazione(oid):
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    obj = conn.execute("SELECT * FROM oggetti WHERE id=?", (oid,)).fetchone()
+    if not obj:
+        conn.close()
+        return jsonify({"ok": False, "error": "Non trovato"}), 404
+    old_cliente_id = obj["cliente_id"]
+    new_cliente_id = data.get("nuovo_cliente_id")
+    conn.execute(
+        "UPDATE oggetti SET cliente_id=?, cliente_precedente_id=?, data_cambio_intestazione=?, updated_at=? WHERE id=?",
+        (new_cliente_id, old_cliente_id, data.get("data_cambio", now[:10]), now, oid),
+    )
+    conn.execute(
+        "INSERT INTO timeline_eventi (tipo_evento, descrizione, oggetto_id, utente, created_at) VALUES (?,?,?,?,?)",
+        ("intestazione_cambiata", "Intestazione cambiata", oid, data.get("utente", ""), now),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/oggetti/by-cliente/<int:cid>", methods=["GET"])
+def api_oggetti_by_cliente(cid):
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM oggetti WHERE cliente_id=? ORDER BY comune, via", (cid,)).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+# ── Offerte versioning ───────────────────────────────────────────────
+
+@app.route("/api/offerte/<int:oid>/versione", methods=["POST"])
+def api_offerte_versione(oid):
+    conn = get_db()
+    orig = conn.execute("SELECT * FROM offerte WHERE id=?", (oid,)).fetchone()
+    if not orig:
+        conn.close()
+        return jsonify({"ok": False, "error": "Non trovata"}), 404
+    orig = dict(orig)
+
+    base_id = orig.get("offerta_padre_id") or oid
+    count = conn.execute(
+        "SELECT COUNT(*) FROM offerte WHERE offerta_padre_id=? OR id=?", (base_id, base_id)
+    ).fetchone()[0]
+    next_ver = chr(ord("A") + count)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute(
+        """INSERT INTO offerte
+           (numero, nome_studio, nome_condominio, via, cap, citta, riferimento, template,
+            prezzo_fornitura, prezzo_care, canone_lettura, modalita, importo, importo_servizio_annuo,
+            stato, email_studio, data_creazione, note, agente_id, oggetto_id,
+            versione, offerta_padre_id, stato_versione, tipo_offerta, natura, is_accordo_quadro)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (orig["numero"], orig["nome_studio"], orig["nome_condominio"],
+         orig["via"], orig["cap"], orig["citta"], orig["riferimento"], orig["template"],
+         orig["prezzo_fornitura"], orig["prezzo_care"], orig["canone_lettura"],
+         orig["modalita"], orig.get("importo"), orig.get("importo_servizio_annuo"),
+         orig["stato"], orig["email_studio"], now, orig["note"], orig["agente_id"],
+         orig.get("oggetto_id"), next_ver, base_id, "attiva",
+         orig.get("tipo_offerta", "installazione"), orig.get("natura", "nuovo"),
+         orig.get("is_accordo_quadro", 0)),
+    )
+    conn.execute("UPDATE offerte SET stato_versione='aggiornata' WHERE id=?", (oid,))
+    conn.execute(
+        "INSERT INTO timeline_eventi (tipo_evento, descrizione, offerta_id, oggetto_id, utente, created_at) VALUES (?,?,?,?,?,?)",
+        ("offerta_aggiornata", "Versione " + next_ver + " creata", cur.lastrowid, orig.get("oggetto_id"), "", now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM offerte WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+# ── Dashboard Admin API ──────────────────────────────────────────────
+
+@app.route("/api/dashboard/admin", methods=["GET"])
+def api_dashboard_admin():
+    conn = get_db()
+    year = datetime.now().strftime("%Y")
+    offs = conn.execute(
+        "SELECT * FROM offerte WHERE stato_versione='attiva' AND strftime('%Y', data_creazione)=?", (year,)
+    ).fetchall()
+
+    total = len(offs)
+    aperte = sum(1 for o in offs if o["stato"] in ("richiamato", "in_attesa_assemblea", "rimandato"))
+    prese = sum(1 for o in offs if o["stato"] == "preso_lavoro")
+    val_fornitura = sum((o["importo"] or 0) for o in offs if o["stato"] == "preso_lavoro" and o["tipo_offerta"] in ("fornitura", "installazione") and not o["is_accordo_quadro"])
+    val_servizi = sum((o["importo_servizio_annuo"] or 0) for o in offs if o["stato"] == "preso_lavoro" and o["tipo_offerta"] == "servizio")
+    aq_count = sum(1 for o in offs if o["is_accordo_quadro"])
+    tasso = round(prese / total * 100, 1) if total > 0 else 0
+
+    # Per natura
+    natura_stats = {}
+    for o in offs:
+        n = o["natura"] or "nuovo"
+        if n not in natura_stats:
+            natura_stats[n] = {"count": 0, "valore": 0}
+        natura_stats[n]["count"] += 1
+        natura_stats[n]["valore"] += (o["importo"] or 0)
+
+    # Per agente
+    agenti_rows = conn.execute("SELECT * FROM agenti ORDER BY cognome").fetchall()
+    agenti_perf = []
+    for a in agenti_rows:
+        a_offs = [o for o in offs if o["agente_id"] == a["id"]]
+        a_prese = sum(1 for o in a_offs if o["stato"] == "preso_lavoro")
+        a_val = sum((o["importo"] or 0) for o in a_offs if o["stato"] == "preso_lavoro")
+        a_prospect = sum((o["importo"] or 0) for o in a_offs if o["stato"] in ("richiamato", "in_attesa_assemblea"))
+        a_att = conn.execute("SELECT COUNT(*) FROM attivita WHERE agente_id=? AND stato='aperta'", (a["id"],)).fetchone()[0]
+        agenti_perf.append({
+            "id": a["id"], "nome": a["nome"], "cognome": a["cognome"], "colore": a["colore"],
+            "offerte_mese": sum(1 for o in a_offs if o["data_creazione"] and o["data_creazione"][:7] == datetime.now().strftime("%Y-%m")),
+            "offerte_ytd": len(a_offs), "valore_preso": a_val, "valore_prospect": a_prospect,
+            "tasso": round(a_prese / len(a_offs) * 100, 1) if a_offs else 0,
+            "attivita_aperte": a_att,
+        })
+
+    conn.close()
+    return jsonify({
+        "ok": True,
+        "data": {
+            "totale": total, "aperte": aperte, "prese": prese,
+            "val_fornitura": val_fornitura, "val_servizi": val_servizi,
+            "aq_count": aq_count, "tasso": tasso,
+            "natura": natura_stats, "agenti": agenti_perf,
+        }
+    })
+
+
 # ── Startup ──────────────────────────────────────────────────────────
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
