@@ -16,7 +16,8 @@ var wizardData = {
   via: "", cap: "", citta: "", email_studio: "",
   telefono: "", referente: "",
   modalita: "vendita", prezzo_fornitura: "", prezzo_care: "",
-  canone_lettura: "", note: "", salva_cliente: false, agente_id: ""
+  canone_lettura: "", note: "", salva_cliente: false, agente_id: "",
+  natura: "nuovo", tipo_offerta: "installazione"
 };
 
 var STATI = [
@@ -122,8 +123,8 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","nome_condominio","template","agente_id","importo","stato","giorni","azioni"];
-var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Condominio",template:"Template",agente_id:"Agente",importo:"Importo",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","importo","stato","giorni","azioni"];
+var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",importo:"Importo",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
 
 function loadDashFilters() {
   try {
@@ -289,13 +290,14 @@ function buildDashboard(c) {
   h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
   h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
 
-  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, importo: 1, stato: 1, giorni: 1 };
+  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, tipo_offerta: 1, natura: 1, importo: 1, stato: 1, giorni: 1 };
   var colDefs = [
     { key: "numero", w: "90px" }, { key: "data_creazione", w: "100px" },
-    { key: "nome_studio", w: "180px" }, { key: "nome_condominio", w: "160px" },
-    { key: "template", w: "90px" }, { key: "agente_id", w: "120px" },
-    { key: "importo", w: "100px", cls: "r" }, { key: "stato", w: "130px" },
-    { key: "giorni", w: "80px" }, { key: "azioni", w: "120px" }
+    { key: "nome_studio", w: "170px" }, { key: "nome_condominio", w: "140px" },
+    { key: "template", w: "80px" }, { key: "tipo_offerta", w: "90px" },
+    { key: "natura", w: "70px" }, { key: "agente_id", w: "110px" },
+    { key: "importo", w: "90px", cls: "r" }, { key: "stato", w: "120px" },
+    { key: "giorni", w: "70px" }, { key: "azioni", w: "110px" }
   ];
   colDefs.forEach(function(cd) {
     if (dashVisibleCols.indexOf(cd.key) < 0) return;
@@ -337,6 +339,15 @@ function buildDashboard(c) {
     if (dashVisibleCols.indexOf("nome_studio") >= 0) h += '<td class="editable" data-field="nome_studio">' + esc(o.nome_studio || "") + "</td>";
     if (dashVisibleCols.indexOf("nome_condominio") >= 0) h += '<td class="editable" data-field="nome_condominio">' + esc(o.nome_condominio || "") + "</td>";
     if (dashVisibleCols.indexOf("template") >= 0) h += '<td class="editable" data-field="template">' + esc(o.template === "E40" ? "E-ITN40" : (o.template === "Q55" ? "Q5.5" : (o.template || ""))) + "</td>";
+    if (dashVisibleCols.indexOf("tipo_offerta") >= 0) {
+      var tipoMap = { fornitura: "Fornitura", installazione: "Installazione", servizio: "Servizio" };
+      var tipoLabel = tipoMap[o.tipo_offerta] || (o.is_accordo_quadro ? "Accordo Q." : (o.tipo_offerta || "\u2014"));
+      h += "<td>" + esc(tipoLabel) + "</td>";
+    }
+    if (dashVisibleCols.indexOf("natura") >= 0) {
+      var natMap = { nuovo: "N", rinnovo: "R", subentro_diretto: "SD", subentro_intermediario: "SI" };
+      h += '<td><span class="badge b-gray" style="font-size:.6rem">' + (natMap[o.natura] || "\u2014") + "</span></td>";
+    }
     if (dashVisibleCols.indexOf("agente_id") >= 0) h += '<td class="editable" data-field="agente_id">' + (o.agente_id ? agenteHtml(o.agente_id) : '<span style="color:var(--muted);font-size:.72rem">Non assegnato</span>') + "</td>";
     if (dashVisibleCols.indexOf("importo") >= 0) h += '<td class="num editable" data-field="importo">' + (imp ? fmtEurDash(imp) : '<span style="color:var(--muted)">\u2014</span>') + "</td>";
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
@@ -925,14 +936,26 @@ function wizStep2Html() {
   h += '<input type="checkbox" id="wiz-save-client" ' + (wizardData.salva_cliente ? "checked" : "") + " /> Salva in Anagrafica Clienti</label>";
   h += "</div>";
 
-  /* ── BOX CONDOMINIO ── */
+  /* ── BOX CONDOMINIO/OGGETTO ── */
   h += '<div class="card mb16">';
-  h += '<div class="wiz-section-title"><i data-lucide="building" style="width:14px;height:14px;vertical-align:-2px"></i> Condominio</div>';
+  h += '<div class="wiz-section-title"><i data-lucide="building" style="width:14px;height:14px;vertical-align:-2px"></i> Oggetto / Condominio</div>';
   h += '<div class="wiz-field"><div class="wiz-label">Nome Condominio</div><input class="wiz-input" id="wiz-cond" value="' + esc(wizardData.nome_condominio) + '" placeholder="Es. Condominio Aurora" /></div>';
   h += '<div class="wiz-row">';
-  h += '<div class="wiz-field"><div class="wiz-label">Via Condominio</div><input class="wiz-input" id="wiz-cond-via" value="' + esc(wizardData.cond_via || "") + '" /></div>';
-  h += '<div class="wiz-field"><div class="wiz-label">Citta Condominio</div><input class="wiz-input" id="wiz-cond-citta" value="' + esc(wizardData.cond_citta || "") + '" /></div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Via *</div><input class="wiz-input" id="wiz-cond-via" value="' + esc(wizardData.cond_via || "") + '" /></div>';
+  h += '<div class="wiz-field"><div class="wiz-label">Comune *</div><input class="wiz-input" id="wiz-cond-citta" value="' + esc(wizardData.cond_citta || "") + '" /></div>';
   h += "</div>";
+  h += '<div class="wiz-row">';
+  h += '<div class="wiz-field"><div class="wiz-label">Natura trattativa *</div><select class="wiz-input" id="wiz-natura">';
+  h += '<option value="nuovo"' + (wizardData.natura === "nuovo" ? " selected" : "") + ">Nuovo</option>";
+  h += '<option value="rinnovo"' + (wizardData.natura === "rinnovo" ? " selected" : "") + ">Rinnovo</option>";
+  h += '<option value="subentro_diretto"' + (wizardData.natura === "subentro_diretto" ? " selected" : "") + ">Subentro Diretto</option>";
+  h += '<option value="subentro_intermediario"' + (wizardData.natura === "subentro_intermediario" ? " selected" : "") + ">Subentro Intermediario</option>";
+  h += "</select></div>";
+  h += '<div class="wiz-field"><div class="wiz-label">Tipo offerta *</div><select class="wiz-input" id="wiz-tipo-offerta">';
+  h += '<option value="installazione"' + (wizardData.tipo_offerta === "installazione" ? " selected" : "") + ">Installazione</option>";
+  h += '<option value="fornitura"' + (wizardData.tipo_offerta === "fornitura" ? " selected" : "") + ">Fornitura</option>";
+  h += '<option value="servizio"' + (wizardData.tipo_offerta === "servizio" ? " selected" : "") + ">Servizio</option>";
+  h += "</select></div></div>";
   h += "</div>";
 
   /* ── AGENTE ── */
@@ -1000,6 +1023,8 @@ function attachWizStep2(c) {
     wizardData.telefono = document.getElementById("wiz-telefono").value;
     wizardData.referente = document.getElementById("wiz-referente").value;
     wizardData.agente_id = document.getElementById("wiz-agente").value;
+    wizardData.natura = document.getElementById("wiz-natura").value;
+    wizardData.tipo_offerta = document.getElementById("wiz-tipo-offerta").value;
     wizardData.salva_cliente = document.getElementById("wiz-save-client").checked;
 
     if (!wizardData.nome_studio) { showModal("Errore", "Nome studio obbligatorio.", [{ label: "Ok", cls: "btn btn-primary", fn: closeModal }]); return; }
@@ -1088,7 +1113,9 @@ function attachWizStep3(c) {
       template: wizardData.template, riferimento: "Accordo Quadro " + (wizardData.template === "E40" ? "E-ITN40" : "Q5.5"),
       prezzo_fornitura: pf, prezzo_care: pc, canone_lettura: cl,
       modalita: wizardData.modalita, note: wizardData.note,
-      agente_id: parseInt(wizardData.agente_id) || null
+      agente_id: parseInt(wizardData.agente_id) || null,
+      natura: wizardData.natura || "nuovo",
+      tipo_offerta: wizardData.tipo_offerta || "installazione"
     }).then(function(off) {
       return api("POST", "/api/genera", { id: off.id });
     }).then(function(res) {
@@ -1096,7 +1123,7 @@ function attachWizStep3(c) {
       if (!rd) return;
       if (res.ok) {
         rd.innerHTML = '<div class="alert a-ok">Offerta N. ' + res.numero + " generata con successo!" + (res.pdf_error ? " (PDF non disponibile)" : "") + "</div>";
-        wizardData = { template: "", nome_studio: "", nome_condominio: "", cond_via: "", cond_citta: "", via: "", cap: "", citta: "", email_studio: "", telefono: "", referente: "", modalita: "vendita", prezzo_fornitura: "", prezzo_care: "", canone_lettura: "", note: "", salva_cliente: false, agente_id: "" };
+        wizardData = { template: "", nome_studio: "", nome_condominio: "", cond_via: "", cond_citta: "", via: "", cap: "", citta: "", email_studio: "", telefono: "", referente: "", modalita: "vendita", prezzo_fornitura: "", prezzo_care: "", canone_lettura: "", note: "", salva_cliente: false, agente_id: "", natura: "nuovo", tipo_offerta: "installazione" };
         wizardStep = 1;
       } else {
         rd.innerHTML = '<div class="alert a-warn">' + (res.error || "Errore") + "</div>";
