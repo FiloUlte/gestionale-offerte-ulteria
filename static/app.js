@@ -1340,27 +1340,7 @@ function loadAgentDetail(aid) {
    ═══════════════════════════════════════════════════════════ */
 
 function renderImpostazioni(c) {
-  c.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>';
-  api("GET", "/api/config").then(function(cfg) {
-    var h = '<div class="kicker">Sistema</div><div class="page-title mb20">Impostazioni</div>';
-    h += '<div class="g2">';
-    h += '<div class="card"><div class="sec-ttl">Prossimo Numero Offerta</div>';
-    h += '<div class="fac gap8"><input class="inp" type="number" id="cfg-num" value="' + cfg.prossimo_numero + '" style="width:140px" />';
-    h += '<button class="btn btn-primary btn-sm" id="save-num">Salva</button></div></div>';
-    h += '<div class="card"><div class="sec-ttl">Info</div>';
-    h += '<div style="font-size:.82rem;color:var(--mid)">';
-    h += "<div class='mb8'><strong>Versione:</strong> 1.0.0</div>";
-    h += "<div><strong>Offerte:</strong> " + (cfg.totale_offerte_generate || 0) + "</div>";
-    h += "</div></div></div>";
-    c.innerHTML = h;
-    icons();
-    document.getElementById("save-num").addEventListener("click", function() {
-      var val = document.getElementById("cfg-num").value;
-      api("POST", "/api/config", { prossimo_numero: parseInt(val) }).then(function() {
-        showModal("Salvato", "Numero aggiornato a " + val, [{ label: "Ok", cls: "btn btn-primary", fn: closeModal }]);
-      });
-    });
-  }).catch(function(e) { c.innerHTML = '<div class="alert a-warn">' + e.message + "</div>"; });
+  window.location.href = "/impostazioni";
 }
 
 

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Login</title>
+  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#F4F9FD;height:100vh;display:flex;align-items:center;justify-content:center}
+    .login-card{background:#fff;border-radius:14px;padding:40px;width:380px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+    .logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+    .logo-dot{width:36px;height:36px;border-radius:8px;background:#009FE3;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;color:#fff}
+    .logo-name{font-size:1.2rem;font-weight:800;color:#0D1F35}
+    .field{margin-bottom:16px}
+    .field label{display:block;font-size:.78rem;font-weight:700;color:#3D5A73;margin-bottom:4px}
+    .field input{width:100%;padding:10px 14px;border:1px solid #D6E8F5;border-radius:8px;font-size:.9rem;font-family:inherit;outline:none}
+    .field input:focus{border-color:#009FE3;box-shadow:0 0 0 3px rgba(0,159,227,.1)}
+    .btn{width:100%;padding:12px;background:#009FE3;color:#fff;border:none;border-radius:8px;font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;transition:background .14s}
+    .btn:hover{background:#0080B8}
+    .error{background:#fef2f2;color:#dc2626;padding:8px 12px;border-radius:8px;font-size:.82rem;margin-bottom:16px}
+    .sub{text-align:center;margin-top:16px;font-size:.72rem;color:#6B8BA4}
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="logo"><div class="logo-dot">U</div><div class="logo-name">Ulteria</div></div>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST" action="/login">
+      <div class="field"><label>Email</label><input type="email" name="email" required autofocus /></div>
+      <div class="field"><label>Password</label><input type="password" name="password" required /></div>
+      <button type="submit" class="btn">Accedi</button>
+    </form>
+    <div class="sub">Gestionale Commerciale Ulteria v2.0</div>
+  </div>
+</body>
+</html>

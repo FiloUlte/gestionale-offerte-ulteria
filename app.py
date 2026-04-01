@@ -10,7 +10,11 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from docx import Document
 from docx.oxml.ns import qn
 
+from functools import wraps
+import hashlib
+
 app = Flask(__name__)
+app.secret_key = "ulteria-gestionale-2026-secret-key"
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
@@ -372,11 +376,134 @@ def format_eur(val):
     return f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+# ── Step 10: Auth ────────────────────────────────────────────────────
+
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+
+def get_current_user():
+    from flask import session
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id=? AND is_active=1", (uid,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            from flask import redirect, url_for
+            return redirect(url_for("login_page"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_role(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            user = get_current_user()
+            if not user:
+                return redirect(url_for("login_page"))
+            if user["ruolo"] not in roles:
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    from flask import session, redirect
+    if request.method == "GET":
+        return render_template("login.html")
+    data = request.form
+    email = data.get("email", "")
+    pw = data.get("password", "")
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE email=? AND is_active=1", (email,)
+    ).fetchone()
+    conn.close()
+    if user and user["password_hash"] == hash_pw(pw):
+        session["user_id"] = user["id"]
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn = get_db()
+        conn.execute("UPDATE users SET last_login=? WHERE id=?", (now, user["id"]))
+        conn.commit()
+        conn.close()
+        return redirect("/")
+    return render_template("login.html", error="Email o password non validi")
+
+
+@app.route("/logout")
+def logout_page():
+    from flask import session, redirect
+    session.clear()
+    return redirect("/login")
+
+
+@app.route("/api/auth/me", methods=["GET"])
+def api_auth_me():
+    user = get_current_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Non autenticato"}), 401
+    return jsonify({"ok": True, "data": {
+        "id": user["id"], "email": user["email"], "nome": user["nome"],
+        "cognome": user["cognome"], "ruolo": user["ruolo"], "agente_id": user["agente_id"],
+    }})
+
+
+# ── Step 10: Users API ──────────────────────────────────────────────
+
+@app.route("/api/users", methods=["GET"])
+def api_users_list():
+    conn = get_db()
+    rows = conn.execute("SELECT id,email,nome,cognome,ruolo,agente_id,is_active,last_login FROM users ORDER BY nome").fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/users", methods=["POST"])
+def api_users_create():
+    data = request.json
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO users (email,password_hash,nome,cognome,ruolo,agente_id) VALUES (?,?,?,?,?,?)",
+            (data["email"], hash_pw(data.get("password", "ulteria2026")),
+             data["nome"], data["cognome"], data.get("ruolo", "agente"), data.get("agente_id")),
+        )
+        conn.commit()
+        row = conn.execute("SELECT id,email,nome,cognome,ruolo,agente_id FROM users WHERE id=?", (cur.lastrowid,)).fetchone()
+        conn.close()
+        return jsonify({"ok": True, "data": dict(row)}), 201
+    except Exception as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
 # ── Routes ───────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/oggetti/<int:oid>")
+def oggetto_page(oid):
+    return render_template("oggetto.html", oggetto_id=oid)
+
+
+@app.route("/impostazioni")
+def impostazioni_page():
+    return render_template("impostazioni.html")
 
 
 # ── API: Config ──────────────────────────────────────────────────────

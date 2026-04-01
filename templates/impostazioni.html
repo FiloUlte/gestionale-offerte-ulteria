@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Impostazioni</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=11">
+  <style>
+    body{overflow:auto}
+    .sett-page{max-width:1100px;margin:0 auto;padding:24px}
+    .sett-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+    .sett-tab{padding:10px 18px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;transition:all .14s}
+    .sett-tab:hover{color:var(--text)}
+    .sett-tab.on{color:var(--blue);border-bottom-color:var(--blue)}
+    .sett-panel{display:none}
+    .sett-panel.active{display:block}
+    .et-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+    .et-row:last-child{border-bottom:none}
+    .et-swatch{width:24px;height:24px;border-radius:4px;border:1px solid var(--border);cursor:pointer}
+    .et-val{flex:1;font-weight:600}
+    .price-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+    .price-row:last-child{border-bottom:none}
+    .price-label{flex:1;font-weight:600}
+  </style>
+</head>
+<body style="background:var(--bg)">
+  <div class="sett-page" id="sett-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script src="/static/impostazioni.js?v=1"></script>
+</body>
+</html>

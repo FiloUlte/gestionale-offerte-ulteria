@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Oggetto</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=11">
+  <style>
+    body{overflow:auto}
+    .obj-page{max-width:1100px;margin:0 auto;padding:24px}
+    .timeline-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+    .timeline-item:last-child{border-bottom:none}
+    .tl-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.7rem}
+    .tl-body{flex:1}
+    .tl-date{font-size:.68rem;color:var(--muted)}
+  </style>
+</head>
+<body style="background:var(--bg)">
+  <div class="obj-page" id="obj-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script>var OGGETTO_ID = {{ oggetto_id }};</script>
+  <script src="/static/oggetto.js?v=1"></script>
+</body>
+</html>
