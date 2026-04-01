@@ -869,17 +869,34 @@ function buildAgenti(c) {
       h += '<div class="card" style="cursor:pointer;border-top:3px solid ' + col + '" data-aid="' + a.id + '">';
       h += '<div class="fac gap10 mb8"><div class="agente-avatar" style="background:' + col + '">' + ini + "</div>";
       h += "<div><div style='font-weight:700'>" + esc(a.nome + " " + a.cognome) + "</div>";
-      h += '<div style="font-size:.72rem;color:var(--muted)">' + esc(a.email || "") + "</div></div></div></div>";
+      h += '<div style="font-size:.72rem;color:var(--muted)">' + esc(a.email || "") + "</div></div>";
+      h += '<div class="ml-auto fac gap4" id="badges-' + a.id + '"></div>';
+      h += "</div></div>";
     });
     h += "</div>";
   }
-  h += '<div id="agent-detail"></div>';
+  h += '<div id="new-agent-form-area"></div>';
   c.innerHTML = h;
   icons();
 
   document.getElementById("btn-new-agent").addEventListener("click", showNewAgentForm);
+  /* Click card navigates to /agenti/<id> */
   c.querySelectorAll("[data-aid]").forEach(function(card) {
-    card.addEventListener("click", function() { loadAgentDetail(parseInt(this.getAttribute("data-aid"))); });
+    card.addEventListener("click", function() {
+      window.location.href = "/agenti/" + this.getAttribute("data-aid");
+    });
+  });
+
+  /* Load badges for each agent */
+  agenti.forEach(function(a) {
+    api("GET", "/api/agenti/" + a.id + "/badges").then(function(b) {
+      var el = document.getElementById("badges-" + a.id);
+      if (!el) return;
+      var bh = "";
+      if (b.offerte_aperte > 0) bh += '<span class="badge b-blue">' + b.offerte_aperte + " aperte</span>";
+      if (b.attivita_urgenti > 0) bh += '<span class="badge b-red">' + b.attivita_urgenti + " urgenti</span>";
+      el.innerHTML = bh;
+    });
   });
 }
 

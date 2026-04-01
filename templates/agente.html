@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Agente</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=8">
+  <style>
+    body { overflow: auto; }
+    .agent-page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .agent-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .agent-avatar-lg { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .agent-meta { flex: 1; }
+    .agent-meta h2 { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+    .agent-meta-sub { font-size: .82rem; color: var(--muted); margin-top: 2px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; margin-top: 28px; }
+    .section-header h3 { font-size: 1rem; font-weight: 800; color: var(--text); margin: 0; }
+    .tabs-bar { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+    .tab-btn { padding: 8px 14px; font-size: .78rem; font-weight: 600; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; transition: all .14s; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.on { color: var(--blue); border-bottom-color: var(--blue); }
+    .att-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: .82rem; }
+    .att-row:last-child { border-bottom: none; }
+    .att-prio { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .att-prio-alta { background: #ef4444; }
+    .att-prio-media { background: #f59e0b; }
+    .att-prio-bassa { background: #94a3b8; }
+    .att-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--mid); flex-shrink: 0; }
+    .att-body { flex: 1; min-width: 0; }
+    .att-title { font-weight: 700; }
+    .att-link { font-size: .72rem; color: var(--blue); cursor: pointer; }
+    .att-link:hover { text-decoration: underline; }
+    .att-due { font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+    .att-due-scaduta { background: var(--red-bg); color: #dc2626; }
+    .att-due-oggi { background: var(--orange-bg); color: #d97706; }
+    .att-due-domani { background: #fef9c3; color: #a16207; }
+    .att-due-futura { background: #f1f5f9; color: #64748b; }
+    .att-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .att-btn { padding: 4px 8px; border-radius: 5px; font-size: .68rem; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all .12s; }
+    .att-btn-ok { background: var(--green-bg); color: #16a34a; }
+    .att-btn-ok:hover { background: var(--green); color: #fff; }
+    .att-btn-edit { background: #f1f5f9; color: #64748b; }
+    .att-btn-edit:hover { background: #e2e8f0; }
+    .att-btn-del { background: transparent; color: var(--muted); }
+    .att-btn-del:hover { background: var(--red-bg); color: #dc2626; }
+    .att-completed .att-title { text-decoration: line-through; color: var(--muted); }
+    .pipeline-total { padding: 10px 14px; background: var(--bg); border-top: 1px solid var(--border); font-size: .82rem; font-weight: 700; color: var(--mid); text-align: right; }
+    .giorni-badge { font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; }
+    .giorni-verde { background: var(--green-bg); color: #16a34a; }
+    .giorni-arancione { background: var(--orange-bg); color: #d97706; }
+    .giorni-rosso { background: var(--red-bg); color: #dc2626; }
+    .counter-text { font-size: .82rem; color: var(--muted); margin-bottom: 10px; }
+  </style>
+</head>
+<body style="background:var(--bg)">
+  <div class="agent-page" id="agent-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script>var AGENTE_ID = {{ agente_id }};</script>
+  <script src="/static/agente.js?v=1"></script>
+</body>
+</html>

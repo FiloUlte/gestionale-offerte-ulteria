@@ -82,6 +82,23 @@ def init_db():
             note TEXT,
             data_inserimento DATETIME
         );
+        CREATE TABLE IF NOT EXISTS attivita (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agente_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'todo',
+            titolo TEXT NOT NULL,
+            descrizione TEXT,
+            data_scadenza DATETIME,
+            priorita TEXT DEFAULT 'media',
+            stato TEXT DEFAULT 'aperta',
+            cliente_id INTEGER,
+            offerta_id INTEGER,
+            completato_il DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (agente_id) REFERENCES agenti(id),
+            FOREIGN KEY (cliente_id) REFERENCES clienti(id),
+            FOREIGN KEY (offerta_id) REFERENCES offerte(id)
+        );
     """)
     # Migrations for existing DBs
     for stmt in [
@@ -670,6 +687,175 @@ def api_agenti_update(aid):
     row = conn.execute("SELECT * FROM agenti WHERE id=?", (aid,)).fetchone()
     conn.close()
     return jsonify(dict(row))
+
+
+# ── API: Agenti Dashboard ────────────────────────────────────────────
+
+@app.route("/agenti/<int:aid>")
+def agente_page(aid):
+    return render_template("agente.html", agente_id=aid)
+
+
+@app.route("/api/agenti/<int:aid>/dashboard", methods=["GET"])
+def api_agente_dashboard(aid):
+    conn = get_db()
+    agente = conn.execute("SELECT * FROM agenti WHERE id=?", (aid,)).fetchone()
+    if not agente:
+        conn.close()
+        return jsonify({"error": "Agente non trovato"}), 404
+
+    offerte = conn.execute(
+        "SELECT * FROM offerte WHERE agente_id=? ORDER BY data_creazione DESC", (aid,)
+    ).fetchall()
+
+    attivita = conn.execute(
+        "SELECT a.*, c.nome_studio as cliente_nome FROM attivita a "
+        "LEFT JOIN clienti c ON a.cliente_id = c.id "
+        "WHERE a.agente_id=? ORDER BY a.data_scadenza ASC", (aid,)
+    ).fetchall()
+
+    # Clienti affidati: clienti con almeno un'offerta di questo agente
+    clienti_rows = conn.execute(
+        "SELECT c.*, COUNT(o.id) as num_offerte, MAX(o.data_creazione) as ultimo_contatto "
+        "FROM clienti c JOIN offerte o ON LOWER(c.nome_studio) = LOWER(o.nome_studio) "
+        "WHERE o.agente_id=? GROUP BY c.id ORDER BY c.nome_studio", (aid,)
+    ).fetchall()
+
+    # Stats mensili (ultimi 6 mesi)
+    stats = conn.execute(
+        "SELECT strftime('%Y-%m', data_creazione) as mese, "
+        "COUNT(*) as inviate, "
+        "SUM(CASE WHEN stato='preso_lavoro' THEN 1 ELSE 0 END) as prese, "
+        "SUM(CASE WHEN stato='perso' THEN 1 ELSE 0 END) as perse "
+        "FROM offerte WHERE agente_id=? AND data_creazione IS NOT NULL "
+        "GROUP BY mese ORDER BY mese DESC LIMIT 6", (aid,)
+    ).fetchall()
+
+    conn.close()
+    return jsonify({
+        "agente": dict(agente),
+        "offerte": [dict(o) for o in offerte],
+        "attivita": [dict(a) for a in attivita],
+        "clienti": [dict(c) for c in clienti_rows],
+        "stats": [dict(s) for s in stats],
+    })
+
+
+# ── API: Attivita ────────────────────────────────────────────────────
+
+@app.route("/api/attivita", methods=["POST"])
+def api_attivita_create():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        """INSERT INTO attivita (agente_id, tipo, titolo, descrizione,
+           data_scadenza, priorita, stato, cliente_id, offerta_id, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (
+            data.get("agente_id"),
+            data.get("tipo", "todo"),
+            data.get("titolo", ""),
+            data.get("descrizione", ""),
+            data.get("data_scadenza"),
+            data.get("priorita", "media"),
+            "aperta",
+            data.get("cliente_id"),
+            data.get("offerta_id"),
+            now,
+        ),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM attivita WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify(dict(row)), 201
+
+
+@app.route("/api/attivita/<int:tid>", methods=["PATCH"])
+def api_attivita_update(tid):
+    data = request.json
+    conn = get_db()
+    allowed = ["tipo", "titolo", "descrizione", "data_scadenza", "priorita", "cliente_id", "offerta_id"]
+    sets = []
+    vals = []
+    for k in allowed:
+        if k in data:
+            sets.append(f"{k}=?")
+            vals.append(data[k])
+    if sets:
+        vals.append(tid)
+        conn.execute(f"UPDATE attivita SET {','.join(sets)} WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM attivita WHERE id=?", (tid,)).fetchone()
+    conn.close()
+    return jsonify(dict(row))
+
+
+@app.route("/api/attivita/<int:tid>/completa", methods=["PATCH"])
+def api_attivita_completa(tid):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    conn.execute(
+        "UPDATE attivita SET stato='completata', completato_il=? WHERE id=?",
+        (now, tid),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/attivita/<int:tid>", methods=["DELETE"])
+def api_attivita_delete(tid):
+    conn = get_db()
+    conn.execute("DELETE FROM attivita WHERE id=?", (tid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/clienti/search", methods=["GET"])
+def api_clienti_search():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    if q and len(q) >= 1:
+        rows = conn.execute(
+            "SELECT id, nome_studio, citta FROM clienti WHERE nome_studio LIKE ? ORDER BY nome_studio LIMIT 10",
+            (f"%{q}%",),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT id, nome_studio, citta FROM clienti ORDER BY nome_studio LIMIT 10").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/offerte/by-cliente/<int:cid>", methods=["GET"])
+def api_offerte_by_cliente(cid):
+    conn = get_db()
+    cliente = conn.execute("SELECT nome_studio FROM clienti WHERE id=?", (cid,)).fetchone()
+    if not cliente:
+        conn.close()
+        return jsonify([])
+    rows = conn.execute(
+        "SELECT id, numero, nome_condominio, riferimento FROM offerte WHERE LOWER(nome_studio)=LOWER(?) ORDER BY data_creazione DESC",
+        (cliente["nome_studio"],),
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/agenti/<int:aid>/badges", methods=["GET"])
+def api_agente_badges(aid):
+    conn = get_db()
+    offerte_aperte = conn.execute(
+        "SELECT COUNT(*) FROM offerte WHERE agente_id=? AND stato IN ('richiamato','in_attesa_assemblea','rimandato')",
+        (aid,),
+    ).fetchone()[0]
+    attivita_urgenti = conn.execute(
+        "SELECT COUNT(*) FROM attivita WHERE agente_id=? AND stato='aperta' AND data_scadenza <= date('now')",
+        (aid,),
+    ).fetchone()[0]
+    conn.close()
+    return jsonify({"offerte_aperte": offerte_aperte, "attivita_urgenti": attivita_urgenti})
 
 
 # ── Startup ──────────────────────────────────────────────────────────
