@@ -94,6 +94,7 @@ function navigate(view) {
     nuova: "Nuova Offerta",
     clienti: "Anagrafica Clienti",
     agenti: "Agenti",
+    admin: "Dashboard",
     impostazioni: "Impostazioni"
   };
   document.getElementById("bc-title").textContent = map[view] || "";
@@ -107,6 +108,7 @@ function renderView() {
     case "nuova": renderNuova(c); break;
     case "clienti": renderClienti(c); break;
     case "agenti": renderAgenti(c); break;
+    case "admin": renderAdminDashboard(c); break;
     case "impostazioni": renderImpostazioni(c); break;
   }
 }
@@ -1365,6 +1367,80 @@ function loadAgentDetail(aid) {
 /* ═══════════════════════════════════════════════════════════
    IMPOSTAZIONI
    ═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN DASHBOARD
+   ═══════════════════════════════════════════════════════════ */
+
+function renderAdminDashboard(c) {
+  c.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>';
+  api("GET", "/api/dashboard/admin").then(function(res) {
+    if (!res.ok) { c.innerHTML = '<div class="alert a-warn">' + (res.error || "Errore") + "</div>"; return; }
+    var d = res.data;
+    var h = '<div class="kicker">Panoramica</div><div class="page-title mb20">Dashboard Aziendale</div>';
+
+    /* KPI row 1 */
+    h += '<div class="g3 mb12">';
+    h += '<div class="kpi"><div class="kpi-l">Offerte YTD</div><div class="kpi-v kv-blue">' + d.totale + "</div></div>";
+    h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v" style="color:#EF9F27">' + d.aperte + "</div></div>";
+    h += '<div class="kpi"><div class="kpi-l">Lavori Presi</div><div class="kpi-v" style="color:#639922">' + d.prese + "</div></div>";
+    h += "</div>";
+
+    h += '<div class="g3 mb20">';
+    h += '<div class="kpi"><div class="kpi-l">Valore Fornitura</div><div class="kpi-v" style="color:#639922">' + fmtEurDash(d.val_fornitura) + "</div></div>";
+    h += '<div class="kpi"><div class="kpi-l">Valore Servizi Annui</div><div class="kpi-v" style="color:#854F0B">' + fmtEurDash(d.val_servizi) + "/anno</div></div>";
+    h += '<div class="kpi"><div class="kpi-l">Tasso Conversione</div><div class="kpi-v kv-blue">' + d.tasso + "%</div></div>";
+    h += "</div>";
+
+    /* Natura analysis */
+    h += '<div class="g2 mb20">';
+    h += '<div class="card"><div class="sec-ttl">Analisi per Natura Trattativa</div>';
+    h += '<table class="tbl"><thead><tr><th>Natura</th><th>Offerte</th><th>Valore</th></tr></thead><tbody>';
+    var natLabels = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Diretto", subentro_intermediario: "Subentro Intermediario" };
+    var natKeys = Object.keys(d.natura || {});
+    if (!natKeys.length) h += '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted)">Nessun dato</td></tr>';
+    natKeys.forEach(function(k) {
+      var n = d.natura[k];
+      h += "<tr><td><strong>" + esc(natLabels[k] || k) + "</strong></td><td>" + n.count + "</td><td>" + fmtEurDash(n.valore) + "</td></tr>";
+    });
+    h += "</tbody></table></div>";
+
+    /* Accordi quadro */
+    h += '<div class="card"><div class="sec-ttl">Accordi Quadro</div>';
+    h += '<div style="text-align:center;padding:20px"><div class="kpi-v kv-blue" style="font-size:2.2rem">' + d.aq_count + '</div><div style="font-size:.82rem;color:var(--muted);margin-top:4px">Inviati YTD</div></div></div>';
+    h += "</div>";
+
+    /* Team performance */
+    h += '<div class="section-header" style="margin-top:24px;margin-bottom:12px"><h3 style="font-size:1rem;font-weight:800;margin:0">Performance Team</h3></div>';
+    h += '<div class="card-0"><table class="tbl"><thead><tr><th>Agente</th><th>Mese</th><th>YTD</th><th>Valore Preso</th><th>Prospect</th><th>Tasso</th><th>Attivita</th></tr></thead><tbody>';
+    if (!d.agenti || !d.agenti.length) h += '<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--muted)">Nessun agente</td></tr>';
+    (d.agenti || []).forEach(function(a) {
+      var ini = ((a.nome || " ")[0] + (a.cognome || " ")[0]).toUpperCase();
+      var col = a.colore || "#009FE3";
+      h += '<tr style="cursor:pointer" data-ag-link="' + a.id + '">';
+      h += '<td><span class="agente-pill"><span class="agente-dot" style="background:' + col + '">' + ini + "</span>" + esc(a.nome + " " + a.cognome) + "</span></td>";
+      h += "<td>" + a.offerte_mese + "</td>";
+      h += "<td>" + a.offerte_ytd + "</td>";
+      h += '<td class="num">' + fmtEurDash(a.valore_preso) + "</td>";
+      h += '<td class="num">' + fmtEurDash(a.valore_prospect) + "</td>";
+      h += "<td>" + a.tasso + "%</td>";
+      h += "<td>" + a.attivita_aperte + "</td></tr>";
+    });
+    h += "</tbody></table></div>";
+
+    c.innerHTML = h;
+    icons();
+
+    /* Agent links */
+    c.querySelectorAll("[data-ag-link]").forEach(function(tr) {
+      tr.addEventListener("click", function() {
+        window.location.href = "/agenti/" + this.getAttribute("data-ag-link");
+      });
+    });
+  }).catch(function(e) {
+    c.innerHTML = '<div class="alert a-warn">Errore: ' + e.message + "</div>";
+  });
+}
 
 function renderImpostazioni(c) {
   window.location.href = "/impostazioni";
