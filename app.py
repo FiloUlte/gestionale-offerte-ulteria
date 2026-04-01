@@ -37,110 +37,221 @@ def get_db():
 def init_db():
     conn = get_db()
     conn.executescript("""
+        /* ── Step 1: Etichette dinamiche ── */
+        CREATE TABLE IF NOT EXISTS etichette (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            categoria TEXT NOT NULL,
+            valore TEXT NOT NULL,
+            colore_bg TEXT DEFAULT '#F4F9FD',
+            colore_testo TEXT DEFAULT '#0D1F35',
+            ordine INTEGER DEFAULT 0,
+            attiva INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Agenti ── */
         CREATE TABLE IF NOT EXISTS agenti (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT,
-            cognome TEXT,
-            email TEXT,
-            telefono TEXT,
-            colore TEXT DEFAULT '#009FE3',
-            note TEXT,
+            nome TEXT, cognome TEXT, email TEXT, telefono TEXT,
+            colore TEXT DEFAULT '#009FE3', note TEXT,
             data_inserimento DATETIME
         );
-        CREATE TABLE IF NOT EXISTS offerte (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            numero INTEGER,
-            nome_studio TEXT,
-            nome_condominio TEXT,
-            via TEXT,
-            cap TEXT,
-            citta TEXT,
-            riferimento TEXT,
-            template TEXT,
-            prezzo_fornitura REAL,
-            prezzo_care REAL,
-            canone_lettura REAL,
-            modalita TEXT DEFAULT 'vendita',
-            totale REAL,
-            stato TEXT DEFAULT 'richiamato',
-            email_studio TEXT,
-            data_creazione DATETIME,
-            path_docx TEXT,
-            path_pdf TEXT,
-            note TEXT,
-            agente_id INTEGER REFERENCES agenti(id)
-        );
+
+        /* ── Clienti ── */
         CREATE TABLE IF NOT EXISTS clienti (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_studio TEXT UNIQUE,
-            via TEXT,
-            cap TEXT,
-            citta TEXT,
-            email TEXT,
-            telefono TEXT,
-            referente TEXT,
-            note TEXT,
+            nome_studio TEXT UNIQUE, via TEXT, cap TEXT, citta TEXT,
+            email TEXT, telefono TEXT, referente TEXT, note TEXT,
+            tipo_cliente TEXT DEFAULT 'Amministratore',
+            settore TEXT, note_generali TEXT,
             data_inserimento DATETIME
         );
+
+        /* ── Step 2: Oggetti (condomini/edifici/servizi) ── */
+        CREATE TABLE IF NOT EXISTS oggetti (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            nome TEXT, via TEXT NOT NULL, civico TEXT,
+            comune TEXT NOT NULL, provincia TEXT, cap TEXT,
+            tipo_oggetto TEXT DEFAULT 'condominio',
+            stato_pipeline TEXT DEFAULT 'prospect',
+            agente_id INTEGER, natura TEXT,
+            n_unita INTEGER, n_scale INTEGER,
+            cliente_precedente_id INTEGER,
+            data_cambio_intestazione DATE,
+            data_primo_contatto DATE, data_ultimo_contatto DATE,
+            motivo_perdita TEXT, note_perdita TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cliente_id) REFERENCES clienti(id),
+            FOREIGN KEY (agente_id) REFERENCES agenti(id)
+        );
+
+        /* ── Offerte ── */
+        CREATE TABLE IF NOT EXISTS offerte (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero INTEGER, nome_studio TEXT, nome_condominio TEXT,
+            via TEXT, cap TEXT, citta TEXT, riferimento TEXT, template TEXT,
+            prezzo_fornitura REAL, prezzo_care REAL, canone_lettura REAL,
+            modalita TEXT DEFAULT 'vendita', totale REAL,
+            stato TEXT DEFAULT 'richiamato', email_studio TEXT,
+            data_creazione DATETIME, path_docx TEXT, path_pdf TEXT, note TEXT,
+            agente_id INTEGER REFERENCES agenti(id),
+            motivo_perdita TEXT, note_perdita TEXT, importo REAL,
+            condominio_id INTEGER, oggetto_id INTEGER,
+            versione TEXT DEFAULT 'A',
+            offerta_padre_id INTEGER REFERENCES offerte(id),
+            stato_versione TEXT DEFAULT 'attiva',
+            tipo_offerta TEXT DEFAULT 'installazione',
+            natura TEXT DEFAULT 'nuovo',
+            importo_servizio_annuo REAL,
+            is_accordo_quadro INTEGER DEFAULT 0
+        );
+
+        /* ── Step 3: Righe economiche offerta ── */
+        CREATE TABLE IF NOT EXISTS offerte_righe (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offerta_id INTEGER NOT NULL,
+            descrizione TEXT NOT NULL,
+            tipo_riga TEXT DEFAULT 'fornitura',
+            prezzo_unitario REAL, quantita REAL,
+            quantita_stimata INTEGER DEFAULT 0,
+            totale_riga REAL, ordine INTEGER DEFAULT 0,
+            FOREIGN KEY (offerta_id) REFERENCES offerte(id)
+        );
+
+        /* ── Step 4: Timeline eventi ── */
+        CREATE TABLE IF NOT EXISTS timeline_eventi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_evento TEXT NOT NULL,
+            descrizione TEXT NOT NULL,
+            cliente_id INTEGER, oggetto_id INTEGER, offerta_id INTEGER,
+            utente TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Step 5: Attivita ── */
         CREATE TABLE IF NOT EXISTS attivita (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             agente_id INTEGER NOT NULL,
             tipo TEXT NOT NULL DEFAULT 'todo',
-            titolo TEXT NOT NULL,
-            descrizione TEXT,
-            data_scadenza DATETIME,
-            priorita TEXT DEFAULT 'media',
+            titolo TEXT NOT NULL, descrizione TEXT,
+            data_scadenza DATETIME, priorita TEXT DEFAULT 'media',
             stato TEXT DEFAULT 'aperta',
-            cliente_id INTEGER,
-            offerta_id INTEGER,
+            cliente_id INTEGER, oggetto_id INTEGER, offerta_id INTEGER,
             completato_il DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agente_id) REFERENCES agenti(id),
             FOREIGN KEY (cliente_id) REFERENCES clienti(id),
             FOREIGN KEY (offerta_id) REFERENCES offerte(id)
         );
+
+        /* ── Step 6: Users ── */
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            nome TEXT NOT NULL, cognome TEXT NOT NULL,
+            ruolo TEXT NOT NULL DEFAULT 'agente',
+            agente_id INTEGER REFERENCES agenti(id),
+            is_active INTEGER DEFAULT 1,
+            last_login DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Note (extended) ── */
+        CREATE TABLE IF NOT EXISTS note_clienti (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER, oggetto_id INTEGER, offerta_id INTEGER,
+            testo TEXT NOT NULL, autore TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cliente_id) REFERENCES clienti(id)
+        );
+
+        /* ── Legacy compat: condomini ── */
         CREATE TABLE IF NOT EXISTS condomini (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER NOT NULL,
-            nome TEXT NOT NULL,
-            indirizzo TEXT,
-            comune TEXT,
-            provincia TEXT,
+            cliente_id INTEGER NOT NULL, nome TEXT NOT NULL,
+            indirizzo TEXT, comune TEXT, provincia TEXT,
             stato_pipeline TEXT DEFAULT 'prospect',
-            agente_id INTEGER,
-            data_assemblea DATE,
+            agente_id INTEGER, data_assemblea DATE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE TABLE IF NOT EXISTS note_clienti (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER NOT NULL,
-            testo TEXT NOT NULL,
-            autore TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
     """)
-    # Migrations for existing DBs
-    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN agente_id
-    # -- ROLLBACK: ALTER TABLE agenti DROP COLUMN colore
-    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN motivo_perdita
-    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN note_perdita
-    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN importo
-    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN condominio_id
-    # -- ROLLBACK: ALTER TABLE clienti DROP COLUMN tipo_cliente
-    for stmt in [
+
+    # ── Step 7: Migrations for existing DBs ──
+    migrations = [
         "ALTER TABLE offerte ADD COLUMN agente_id INTEGER REFERENCES agenti(id)",
         "ALTER TABLE agenti ADD COLUMN colore TEXT DEFAULT '#009FE3'",
         "ALTER TABLE offerte ADD COLUMN motivo_perdita TEXT",
         "ALTER TABLE offerte ADD COLUMN note_perdita TEXT",
         "ALTER TABLE offerte ADD COLUMN importo REAL",
         "ALTER TABLE offerte ADD COLUMN condominio_id INTEGER",
-        "ALTER TABLE clienti ADD COLUMN tipo_cliente TEXT DEFAULT 'lead'",
-    ]:
+        "ALTER TABLE offerte ADD COLUMN oggetto_id INTEGER",
+        "ALTER TABLE offerte ADD COLUMN versione TEXT DEFAULT 'A'",
+        "ALTER TABLE offerte ADD COLUMN offerta_padre_id INTEGER",
+        "ALTER TABLE offerte ADD COLUMN stato_versione TEXT DEFAULT 'attiva'",
+        "ALTER TABLE offerte ADD COLUMN tipo_offerta TEXT DEFAULT 'installazione'",
+        "ALTER TABLE offerte ADD COLUMN natura TEXT DEFAULT 'nuovo'",
+        "ALTER TABLE offerte ADD COLUMN importo_servizio_annuo REAL",
+        "ALTER TABLE offerte ADD COLUMN is_accordo_quadro INTEGER DEFAULT 0",
+        "ALTER TABLE clienti ADD COLUMN tipo_cliente TEXT DEFAULT 'Amministratore'",
+        "ALTER TABLE clienti ADD COLUMN settore TEXT",
+        "ALTER TABLE clienti ADD COLUMN note_generali TEXT",
+        "ALTER TABLE attivita ADD COLUMN oggetto_id INTEGER",
+        "ALTER TABLE note_clienti ADD COLUMN oggetto_id INTEGER",
+        "ALTER TABLE note_clienti ADD COLUMN offerta_id INTEGER",
+    ]
+    for stmt in migrations:
         try:
             conn.execute(stmt)
         except Exception:
             pass
+
+    # ── Insert default etichette if empty ──
+    count = conn.execute("SELECT COUNT(*) FROM etichette").fetchone()[0]
+    if count == 0:
+        defaults = [
+            ("tipo_cliente", "Amministratore", "#E6F5FC", "#0080B8"),
+            ("tipo_cliente", "Gestore", "#EAF3DE", "#639922"),
+            ("tipo_cliente", "Costruttore", "#FAEEDA", "#854F0B"),
+            ("tipo_cliente", "Progettista", "#EEEDFE", "#534AB7"),
+            ("tipo_cliente", "Condomino", "#F1EFE8", "#5F5E5A"),
+            ("tipo_cliente", "Rivenditore", "#FCE4EC", "#880E4F"),
+            ("stato_pipeline", "prospect", "#E6F5FC", "#0080B8"),
+            ("stato_pipeline", "offerta_inviata", "#FAEEDA", "#854F0B"),
+            ("stato_pipeline", "in_attesa_assemblea", "#FFF3E0", "#E65100"),
+            ("stato_pipeline", "preso", "#EAF3DE", "#639922"),
+            ("stato_pipeline", "perso", "#FCEBEB", "#A32D2D"),
+            ("stato_pipeline", "rimandato", "#EEEDFE", "#534AB7"),
+            ("tipo_attivita", "chiamata", "#E6F5FC", "#0080B8"),
+            ("tipo_attivita", "email", "#EAF3DE", "#639922"),
+            ("tipo_attivita", "visita", "#FAEEDA", "#854F0B"),
+            ("tipo_attivita", "assemblea", "#EEEDFE", "#534AB7"),
+            ("tipo_attivita", "to-do", "#F1EFE8", "#5F5E5A"),
+            ("tipo_attivita", "altro", "#F4F9FD", "#0D1F35"),
+            ("motivo_perdita", "Prezzo", "#FCEBEB", "#A32D2D"),
+            ("motivo_perdita", "Competitor", "#FCEBEB", "#A32D2D"),
+            ("motivo_perdita", "Assemblea non approva", "#FCEBEB", "#A32D2D"),
+            ("motivo_perdita", "Non risponde", "#FCEBEB", "#A32D2D"),
+            ("motivo_perdita", "Rimandato", "#EEEDFE", "#534AB7"),
+            ("motivo_perdita", "Cambio amministratore", "#FAEEDA", "#854F0B"),
+            ("motivo_perdita", "Altro", "#F1EFE8", "#5F5E5A"),
+            ("tipo_offerta", "fornitura", "#E6F5FC", "#0080B8"),
+            ("tipo_offerta", "installazione", "#EAF3DE", "#639922"),
+            ("tipo_offerta", "servizio", "#FAEEDA", "#854F0B"),
+            ("settore", "amministratori", "#E6F5FC", "#0080B8"),
+            ("settore", "progettisti", "#EEEDFE", "#534AB7"),
+            ("settore", "gestori", "#EAF3DE", "#639922"),
+            ("settore", "costruttori", "#FAEEDA", "#854F0B"),
+        ]
+        for cat, val, bg, txt in defaults:
+            conn.execute(
+                "INSERT INTO etichette (categoria,valore,colore_bg,colore_testo) VALUES (?,?,?,?)",
+                (cat, val, bg, txt),
+            )
+
     conn.commit()
     conn.close()
 
