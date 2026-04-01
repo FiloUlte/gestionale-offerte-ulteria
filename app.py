@@ -99,14 +99,43 @@ def init_db():
             FOREIGN KEY (cliente_id) REFERENCES clienti(id),
             FOREIGN KEY (offerta_id) REFERENCES offerte(id)
         );
+        CREATE TABLE IF NOT EXISTS condomini (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            nome TEXT NOT NULL,
+            indirizzo TEXT,
+            comune TEXT,
+            provincia TEXT,
+            stato_pipeline TEXT DEFAULT 'prospect',
+            agente_id INTEGER,
+            data_assemblea DATE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS note_clienti (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            testo TEXT NOT NULL,
+            autore TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     # Migrations for existing DBs
+    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN agente_id
+    # -- ROLLBACK: ALTER TABLE agenti DROP COLUMN colore
+    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN motivo_perdita
+    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN note_perdita
+    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN importo
+    # -- ROLLBACK: ALTER TABLE offerte DROP COLUMN condominio_id
+    # -- ROLLBACK: ALTER TABLE clienti DROP COLUMN tipo_cliente
     for stmt in [
         "ALTER TABLE offerte ADD COLUMN agente_id INTEGER REFERENCES agenti(id)",
         "ALTER TABLE agenti ADD COLUMN colore TEXT DEFAULT '#009FE3'",
         "ALTER TABLE offerte ADD COLUMN motivo_perdita TEXT",
         "ALTER TABLE offerte ADD COLUMN note_perdita TEXT",
         "ALTER TABLE offerte ADD COLUMN importo REAL",
+        "ALTER TABLE offerte ADD COLUMN condominio_id INTEGER",
+        "ALTER TABLE clienti ADD COLUMN tipo_cliente TEXT DEFAULT 'lead'",
     ]:
         try:
             conn.execute(stmt)
@@ -664,7 +693,7 @@ def api_clienti_detail(cid):
 def api_clienti_update(cid):
     data = request.json
     conn = get_db()
-    allowed = ["nome_studio", "via", "cap", "citta", "email", "telefono", "referente", "note"]
+    allowed = ["nome_studio", "via", "cap", "citta", "email", "telefono", "referente", "note", "tipo_cliente"]
     sets = []
     vals = []
     for k in allowed:
@@ -678,6 +707,66 @@ def api_clienti_update(cid):
     row = conn.execute("SELECT * FROM clienti WHERE id=?", (cid,)).fetchone()
     conn.close()
     return jsonify(dict(row))
+
+
+# ── Scheda Cliente (pagina dedicata) ─────────────────────────────────
+
+@app.route("/clienti/<int:cid>")
+def cliente_page(cid):
+    return render_template("cliente.html", cliente_id=cid)
+
+
+@app.route("/api/clienti/<int:cid>/note", methods=["POST"])
+def api_clienti_add_note(cid):
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO note_clienti (cliente_id, testo, autore, created_at) VALUES (?,?,?,?)",
+        (cid, data.get("testo", ""), data.get("autore", ""), now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM note_clienti WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/note/<int:nid>", methods=["DELETE"])
+def api_note_delete(nid):
+    conn = get_db()
+    conn.execute("DELETE FROM note_clienti WHERE id=?", (nid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/clienti/<int:cid>/full", methods=["GET"])
+def api_clienti_full(cid):
+    """Full client detail with offerte, condomini, note."""
+    conn = get_db()
+    cliente = conn.execute("SELECT * FROM clienti WHERE id=?", (cid,)).fetchone()
+    if not cliente:
+        conn.close()
+        return jsonify({"error": "Cliente non trovato"}), 404
+    offerte = conn.execute(
+        "SELECT o.*, a.nome as agente_nome, a.cognome as agente_cognome, a.colore as agente_colore "
+        "FROM offerte o LEFT JOIN agenti a ON o.agente_id = a.id "
+        "WHERE LOWER(o.nome_studio) = LOWER(?) ORDER BY o.data_creazione DESC",
+        (cliente["nome_studio"],),
+    ).fetchall()
+    condomini = conn.execute(
+        "SELECT * FROM condomini WHERE cliente_id=? ORDER BY nome", (cid,)
+    ).fetchall()
+    note = conn.execute(
+        "SELECT * FROM note_clienti WHERE cliente_id=? ORDER BY created_at DESC", (cid,)
+    ).fetchall()
+    conn.close()
+    return jsonify({
+        "cliente": dict(cliente),
+        "offerte": [dict(o) for o in offerte],
+        "condomini": [dict(c) for c in condomini],
+        "note": [dict(n) for n in note],
+    })
 
 
 # ── API: Agenti ──────────────────────────────────────────────────────
@@ -919,6 +1008,40 @@ def api_agente_badges(aid):
     ).fetchone()[0]
     conn.close()
     return jsonify({"offerte_aperte": offerte_aperte, "attivita_urgenti": attivita_urgenti})
+
+
+@app.route("/api/attivita/scadute-count", methods=["GET"])
+def api_attivita_scadute_count():
+    conn = get_db()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM attivita WHERE stato='aperta' AND date(data_scadenza) <= date('now')"
+    ).fetchone()[0]
+    conn.close()
+    return jsonify({"count": count})
+
+
+@app.route("/api/agenti/<int:aid>/stats", methods=["GET"])
+def api_agente_stats(aid):
+    conn = get_db()
+    offs = conn.execute("SELECT * FROM offerte WHERE agente_id=?", (aid,)).fetchall()
+    tot = len(offs)
+    prese = sum(1 for o in offs if o["stato"] == "preso_lavoro")
+    perse = sum(1 for o in offs if o["stato"] == "perso")
+    aperte = sum(1 for o in offs if o["stato"] in ("richiamato", "in_attesa_assemblea", "rimandato"))
+    val_preso = sum((o["prezzo_fornitura"] or 0) + (o["prezzo_care"] or 0) + (o["canone_lettura"] or 0) for o in offs if o["stato"] == "preso_lavoro")
+    val_pipeline = sum((o["prezzo_fornitura"] or 0) + (o["prezzo_care"] or 0) + (o["canone_lettura"] or 0) for o in offs if o["stato"] in ("richiamato", "in_attesa_assemblea"))
+    tasso = round(prese / tot * 100, 1) if tot > 0 else 0
+    att_aperte = conn.execute("SELECT COUNT(*) FROM attivita WHERE agente_id=? AND stato='aperta'", (aid,)).fetchone()[0]
+    att_scadute = conn.execute("SELECT COUNT(*) FROM attivita WHERE agente_id=? AND stato='aperta' AND data_scadenza <= date('now')", (aid,)).fetchone()[0]
+    conn.close()
+    return jsonify({
+        "ok": True,
+        "data": {
+            "totale_offerte": tot, "prese": prese, "perse": perse, "aperte": aperte,
+            "valore_preso": val_preso, "valore_pipeline": val_pipeline, "tasso_conversione": tasso,
+            "attivita_aperte": att_aperte, "attivita_scadute": att_scadute,
+        }
+    })
 
 
 # ── Startup ──────────────────────────────────────────────────────────

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Cliente</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=10">
+  <style>
+    body { overflow: auto; }
+    .client-page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .tipo-badge { cursor: pointer; transition: all .14s; }
+    .tipo-badge:hover { opacity: .8; }
+    .note-item { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .note-item:last-child { border-bottom: none; }
+    .note-text { font-size: .85rem; line-height: 1.5; }
+    .note-meta { font-size: .68rem; color: var(--muted); margin-top: 4px; }
+    .note-del { cursor: pointer; color: var(--muted); transition: color .14s; }
+    .note-del:hover { color: var(--red); }
+  </style>
+</head>
+<body style="background:var(--bg)">
+  <div class="client-page" id="client-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script>var CLIENTE_ID = {{ cliente_id }};</script>
+  <script src="/static/cliente.js?v=1"></script>
+</body>
+</html>

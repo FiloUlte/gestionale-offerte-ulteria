@@ -360,6 +360,10 @@ function buildDashboard(c) {
       h += "<div><strong>Note:</strong> " + esc(o.note || "Nessuna nota") + "</div>";
       h += "<div><strong>Email:</strong> " + esc(o.email_studio || "\u2014") + "</div>";
       h += "</div>";
+      h += '<div class="fac gap8 mb12">';
+      if (o.nome_studio) h += '<a href="/clienti/0" class="btn btn-sm btn-ghost" data-client-link="' + esc(o.nome_studio) + '"><i data-lucide="user" style="width:12px;height:12px"></i> Scheda cliente</a>';
+      if (o.agente_id) h += '<a href="/agenti/' + o.agente_id + '" class="btn btn-sm btn-ghost"><i data-lucide="briefcase" style="width:12px;height:12px"></i> Dashboard agente</a>';
+      h += "</div>";
       h += '<div class="fac gap6">';
       h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
       if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
@@ -1360,8 +1364,20 @@ function renderImpostazioni(c) {
 }
 
 
+/* ─── Sidebar badge ─── */
+function loadSidebarBadges() {
+  api("GET", "/api/attivita/scadute-count").then(function(res) {
+    var badge = document.getElementById("sidebar-att-badge");
+    if (badge && res.count > 0) {
+      badge.textContent = res.count;
+      badge.style.display = "inline";
+    }
+  }).catch(function() { /* ignore */ });
+}
+
 /* ─── INIT ─── */
 document.addEventListener("DOMContentLoaded", function() {
   icons();
   renderView();
+  loadSidebarBadges();
 });
