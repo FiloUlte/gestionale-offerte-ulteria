@@ -920,12 +920,17 @@ function showMotivoPerdita(oid, oldStato, cont) {
   }
 }
 
-/* ─── Nuova Offerta Modal (intelligente) ─── */
+/* ─── Nuova Offerta Modal (v3 — styled + complete) ─── */
 
 var _noAcClienti = [];
+var _noTipo = "";
+var _noMacro = "";
 
 function showNuovaOffertaModal(cont) {
   closeModal();
+  _noTipo = "";
+  _noMacro = "";
+
   var overlay = document.createElement("div");
   overlay.className = "modal-overlay show";
   overlay.id = "modal-overlay";
@@ -950,82 +955,85 @@ function showNuovaOffertaModal(cont) {
     agOpts += '<option value="' + a.id + '">' + esc(a.nome + " " + a.cognome) + "</option>";
   });
 
-  var sottotipiCK = [
-    { val: "CK", label: "CK — Sostituzione Ripartitori", macro: "installazione" },
-    { val: "CL", label: "CL — Commessa Lavori", macro: "installazione" },
-    { val: "RK", label: "RK — Lettura Ripartitori", macro: "servizi" },
-    { val: "RD", label: "RD — Lettura Diretta", macro: "servizi" },
-    { val: "MANSIS", label: "MANSIS — Manutenzione Sistemi", macro: "servizi" },
-    { val: "MANCT", label: "MANCT — Manutenzione CT", macro: "servizi" },
-    { val: "MAN-DOMO", label: "MAN-DOMO", macro: "servizi" },
-    { val: "cc_modus", label: "CC-Modus", macro: "cc_modus" },
-    { val: "cu_unitron", label: "CU-Unitron", macro: "cu_unitron" },
-    { val: "MISURATORI", label: "Fornitura Misuratori", macro: "fornitura" },
-    { val: "RICAMBI", label: "Fornitura Ricambi", macro: "fornitura" },
-    { val: "CM", label: "Intervento CM", macro: "interventi" },
-    { val: "_altro", label: "Altro (campo libero)", macro: "" }
+  var sottotipiDef = [
+    { val: "CK", label: "CK", desc: "Sostituzione Ripartitori", macro: "installazione", icon: "thermometer", color: "#009FE3", bg: "#E6F5FC" },
+    { val: "CL", label: "CL", desc: "Commesse Lavori", macro: "installazione", icon: "wrench", color: "#EF9F27", bg: "#FFF3E0" },
+    { val: "RK", label: "RK", desc: "Lettura Ripartitori", macro: "servizi", icon: "radio", color: "#639922", bg: "#EAF3DE" },
+    { val: "RD", label: "RD", desc: "Lettura Diretta", macro: "servizi", icon: "radio", color: "#173404", bg: "#C0DD97" },
+    { val: "MANSIS", label: "MANSIS", desc: "Manutenzione Sistemi", macro: "servizi", icon: "settings", color: "#854F0B", bg: "#FAEEDA" },
+    { val: "MANCT", label: "MANCT", desc: "Manutenzione CT", macro: "servizi", icon: "settings", color: "#3C3489", bg: "#EEEDFE" },
+    { val: "MAN-DOMO", label: "MAN-DOMO", desc: "Domotica", macro: "servizi", icon: "home", color: "#412402", bg: "#FAC775" },
+    { val: "cc_modus", label: "CC-Modus", desc: "Contabilizzazione", macro: "cc_modus", icon: "layers", color: "#854F0B", bg: "#FAEEDA" },
+    { val: "cu_unitron", label: "CU-Unitron", desc: "Telegestione", macro: "cu_unitron", icon: "wifi", color: "#3C3489", bg: "#EEEDFE" },
+    { val: "MISURATORI", label: "Fornitura", desc: "Misuratori", macro: "fornitura", icon: "package", color: "#993C1D", bg: "#FAECE7" },
+    { val: "RICAMBI", label: "Ricambi", desc: "Ricambi", macro: "fornitura", icon: "package", color: "#4A1B0C", bg: "#F5C4B3" },
+    { val: "CM", label: "CM", desc: "Intervento", macro: "interventi", icon: "tool", color: "#5F5E5A", bg: "#F1EFE8" },
+    { val: "_altro", label: "Altro", desc: "Campo libero", macro: "", icon: "edit", color: "#5F5E5A", bg: "#F1EFE8" }
   ];
 
   var bh = "";
 
   /* ── SEZIONE 1: Cliente ── */
-  bh += '<div style="border-left:3px solid var(--blue);padding-left:14px;margin-bottom:16px">';
-  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="user" style="width:14px;height:14px;vertical-align:-2px"></i> Cliente</div>';
-  bh += '<div style="position:relative"><input class="inp" id="no-studio" placeholder="Digita per cercare o inserisci nuovo..." style="width:100%" />';
+  bh += '<div style="border-left:3px solid var(--blue);padding-left:16px;margin-bottom:20px">';
+  bh += '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px;color:var(--text)"><i data-lucide="user" style="width:16px;height:16px;vertical-align:-3px;color:var(--blue)"></i> Cliente / Amministratore</div>';
+  bh += '<div style="position:relative"><input class="inp" id="no-studio" placeholder="Digita per cercare in anagrafica..." style="width:100%;font-size:.9rem;padding:10px 14px" />';
   bh += '<div id="no-ac-drop" style="position:absolute;top:100%;left:0;right:0;display:none" class="ac-drop"></div></div>';
-  bh += '<label style="font-size:.75rem;display:flex;align-items:center;gap:4px;margin-top:6px;cursor:pointer"><input type="checkbox" id="no-save-cli" checked /> Salva in anagrafica clienti</label>';
-  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">';
-  bh += '<input class="inp" id="no-cli-via" placeholder="Via cliente" style="font-size:.78rem" />';
-  bh += '<input class="inp" id="no-cli-citta" placeholder="Citta cliente" style="font-size:.78rem" />';
-  bh += '<input class="inp" id="no-cli-email" placeholder="Email" style="font-size:.78rem" />';
-  bh += '<input class="inp" id="no-cli-tel" placeholder="Telefono" style="font-size:.78rem" />';
+  bh += '<label style="font-size:.82rem;display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer"><input type="checkbox" id="no-save-cli" checked /> Salva in anagrafica clienti</label>';
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">';
+  bh += '<input class="inp" id="no-cli-via" placeholder="Via cliente" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-cli-citta" placeholder="Citta cliente" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-cli-email" placeholder="Email" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-cli-tel" placeholder="Telefono" style="font-size:.85rem;padding:8px 12px" />';
   bh += "</div></div>";
 
   /* ── SEZIONE 2: Riferimento ── */
-  bh += '<div style="border-left:3px solid #639922;padding-left:14px;margin-bottom:16px">';
-  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="building-2" style="width:14px;height:14px;vertical-align:-2px"></i> Riferimento</div>';
-  bh += '<label style="font-size:.78rem;display:flex;align-items:center;gap:6px;margin-bottom:8px"><input type="checkbox" id="no-crea-oggetto" checked /> Crea come oggetto/stabile (con foglio costi)</label>';
-  bh += '<div style="display:grid;grid-template-columns:1fr auto;gap:8px">';
-  bh += '<input class="inp" id="no-rif-nome" placeholder="Nome (es. Cond. Aurora, Comune di Monza...)" />';
-  bh += '<select class="inp" id="no-rif-tipo" style="width:140px"><option value="condominio">Condominio</option><option value="ente_pubblico">Ente Pubblico</option><option value="commerciale">Commerciale</option><option value="altro">Altro</option></select>';
+  bh += '<div style="border-left:3px solid #639922;padding-left:16px;margin-bottom:20px">';
+  bh += '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px;color:var(--text)"><i data-lucide="building-2" style="width:16px;height:16px;vertical-align:-3px;color:#639922"></i> Riferimento / Condominio</div>';
+  bh += '<label style="font-size:.85rem;display:flex;align-items:center;gap:6px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="no-crea-oggetto" checked /> Crea come oggetto/stabile (con foglio costi)</label>';
+  bh += '<div style="display:grid;grid-template-columns:1fr auto;gap:10px">';
+  bh += '<input class="inp" id="no-rif-nome" placeholder="Nome (es. Cond. Aurora, Palestra X...)" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<select class="inp" id="no-rif-tipo" style="width:150px;font-size:.85rem;padding:8px 12px"><option value="condominio">Condominio</option><option value="ente_pubblico">Ente Pubblico</option><option value="commerciale">Commerciale</option><option value="altro">Altro</option></select>';
   bh += "</div>";
-  bh += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:6px">';
-  bh += '<input class="inp" id="no-rif-via" placeholder="Via *" />';
-  bh += '<input class="inp" id="no-rif-civico" placeholder="Civico" />';
-  bh += '<input class="inp" id="no-rif-comune" placeholder="Comune *" />';
+  bh += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:8px">';
+  bh += '<input class="inp" id="no-rif-via" placeholder="Via" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-rif-civico" placeholder="Civico" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-rif-comune" placeholder="Comune" style="font-size:.85rem;padding:8px 12px" />';
   bh += "</div>";
-  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
-  bh += '<input class="inp" type="number" id="no-n-unita" placeholder="N. unita abitative" />';
-  bh += '<input class="inp" id="no-rif-prov" placeholder="Provincia" />';
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">';
+  bh += '<input class="inp" type="number" id="no-n-unita" placeholder="N. unita abitative" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<input class="inp" id="no-rif-prov" placeholder="Provincia" style="font-size:.85rem;padding:8px 12px" />';
   bh += "</div></div>";
 
   /* ── SEZIONE 3: Tipologia ── */
-  bh += '<div style="border-left:3px solid #EF9F27;padding-left:14px;margin-bottom:16px">';
-  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="layers" style="width:14px;height:14px;vertical-align:-2px"></i> Tipologia Offerta</div>';
-  bh += '<div style="display:flex;flex-wrap:wrap;gap:6px" id="no-tipo-pills">';
-  sottotipiCK.forEach(function(st) {
-    bh += '<button class="pill-btn" data-no-tipo="' + st.val + '" style="font-size:.75rem">' + st.label + "</button>";
+  bh += '<div style="border-left:3px solid #EF9F27;padding-left:16px;margin-bottom:20px">';
+  bh += '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px;color:var(--text)"><i data-lucide="layers" style="width:16px;height:16px;vertical-align:-3px;color:#EF9F27"></i> Tipologia Offerta</div>';
+  bh += '<div style="display:flex;flex-wrap:wrap;gap:8px" id="no-tipo-pills">';
+  sottotipiDef.forEach(function(st) {
+    bh += '<button data-no-tipo="' + st.val + '" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:2px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;min-width:110px">';
+    bh += '<i data-lucide="' + st.icon + '" style="width:16px;height:16px"></i>';
+    bh += '<span>' + st.label + '</span>';
+    bh += "</button>";
   });
   bh += "</div>";
-  bh += '<div id="no-tipo-altro" style="display:none;margin-top:8px"><input class="inp" id="no-tipo-custom" placeholder="Tipo personalizzato..." /></div>';
+  bh += '<div id="no-tipo-altro" style="display:none;margin-top:10px"><input class="inp" id="no-tipo-custom" placeholder="Tipo personalizzato..." style="font-size:.85rem;padding:8px 12px" /></div>';
   bh += "</div>";
 
   /* ── SEZIONE 4: Dettagli (dinamica per CK/CL) ── */
   bh += '<div id="no-dettagli" style="border-left:3px solid #854F0B;padding-left:14px;margin-bottom:16px;display:none"></div>';
 
   /* ── SEZIONE 5: Agente + Natura + Stato ── */
-  bh += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">';
-  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Agente *</label><select class="inp" id="no-agente">' + agOpts + "</select></div>";
-  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Natura</label><select class="inp" id="no-natura"><option value="nuovo">Nuovo</option><option value="rinnovo">Rinnovo</option><option value="subentro_diretto">Subentro Diretto</option><option value="subentro_intermediario">Subentro Intermediario</option></select></div>';
-  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="no-stato"><option value="richiamato">Richiamato</option><option value="in_attesa_assemblea">In Attesa Assemblea</option><option value="preso_lavoro">Preso Lavoro</option><option value="perso">Perso</option><option value="rimandato">Rimandato</option></select></div>';
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px">';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Agente *</label><select class="inp" id="no-agente" style="font-size:.85rem;padding:8px 12px">' + agOpts + "</select></div>";
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Natura</label><select class="inp" id="no-natura" style="font-size:.85rem;padding:8px 12px"><option value="nuovo">Nuovo</option><option value="rinnovo">Rinnovo</option><option value="subentro_diretto">Subentro Diretto</option><option value="subentro_intermediario">Subentro Intermediario</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="no-stato" style="font-size:.85rem;padding:8px 12px"><option value="richiamato">Richiamato</option><option value="in_attesa_assemblea">In Attesa Assemblea</option><option value="preso_lavoro">Preso Lavoro</option><option value="perso">Perso</option><option value="rimandato">Rimandato</option></select></div>';
   bh += "</div>";
 
   /* ── SEZIONE 6: Valore + Canone + Note ── */
-  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
-  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="no-valore" /></div>';
-  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="no-annuo" /></div>';
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="no-valore" style="font-size:.9rem;padding:10px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="no-annuo" style="font-size:.9rem;padding:10px 12px" /></div>';
   bh += "</div>";
-  bh += '<div class="form-field" style="margin-bottom:12px"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Note</label><textarea class="inp" id="no-note" rows="2"></textarea></div>';
+  bh += '<div class="form-field" style="margin-bottom:14px"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Note</label><textarea class="inp" id="no-note" rows="2" style="font-size:.85rem;padding:8px 12px"></textarea></div>';
 
   /* ── Gara ── */
   bh += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">';
@@ -1060,8 +1068,7 @@ function showNuovaOffertaModal(cont) {
   icons();
 
   /* ── Events ── */
-  var selectedTipo = "";
-  var selectedMacro = "";
+  /* uses global _noTipo, _noMacro */
 
   /* Client autocomplete */
   var studioInp = document.getElementById("no-studio");
@@ -1106,12 +1113,30 @@ function showNuovaOffertaModal(cont) {
   /* Tipologia pills */
   document.querySelectorAll("[data-no-tipo]").forEach(function(btn) {
     btn.addEventListener("click", function() {
-      document.querySelectorAll("[data-no-tipo]").forEach(function(b) { b.classList.remove("on"); });
-      this.classList.add("on");
+      /* Reset all pills to default style */
+      document.querySelectorAll("[data-no-tipo]").forEach(function(b) {
+        var bVal = b.getAttribute("data-no-tipo");
+        var bSt = sottotipiDef.find(function(s) { return s.val === bVal; });
+        if (bSt) {
+          b.style.background = bSt.bg;
+          b.style.color = bSt.color;
+          b.style.borderColor = bSt.bg;
+          b.style.transform = "scale(1)";
+          b.style.boxShadow = "none";
+        }
+      });
+      /* Highlight selected */
       var val = this.getAttribute("data-no-tipo");
-      var st = sottotipiCK.find(function(s) { return s.val === val; });
-      selectedTipo = val;
-      selectedMacro = st ? st.macro : "";
+      var st = sottotipiDef.find(function(s) { return s.val === val; });
+      if (st) {
+        this.style.background = st.color;
+        this.style.color = "#fff";
+        this.style.borderColor = st.color;
+        this.style.transform = "scale(1.04)";
+        this.style.boxShadow = "0 2px 8px rgba(0,0,0,.15)";
+      }
+      _noTipo = val;
+      _noMacro = st ? st.macro : "";
 
       var altroDiv = document.getElementById("no-tipo-altro");
       if (val === "_altro") { altroDiv.style.display = "block"; }
@@ -1121,19 +1146,23 @@ function showNuovaOffertaModal(cont) {
       var detDiv = document.getElementById("no-dettagli");
       if (val === "CK") {
         detDiv.style.display = "block";
-        detDiv.innerHTML = '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="thermometer" style="width:14px;height:14px;vertical-align:-2px;color:#009FE3"></i> Dettagli CK</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" /></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Prezzo Rip. &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-prip" /></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Modello</label><select class="inp" id="no-ck-mod"><option>E-ITN40</option><option>Q5.5</option></select></div>' +
+        detDiv.innerHTML = '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px"><i data-lucide="thermometer" style="width:16px;height:16px;vertical-align:-3px;color:#009FE3"></i> Dettagli CK — Ripartitori</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="thermometer" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" style="font-size:.9rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Prezzo Rip. &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-prip" style="font-size:.9rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Modello Rip.</label><select class="inp" id="no-ck-mod" style="font-size:.85rem;padding:8px 12px"><option>E-ITN40</option><option>Q5.5</option></select></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="radio" style="width:12px;height:12px;color:#639922;vertical-align:-2px"></i> Canone Lettura &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-lett" style="font-size:.9rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="shield" style="width:12px;height:12px;color:#22c55e;vertical-align:-2px"></i> Ulteria Care &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-care" style="font-size:.9rem;padding:8px 12px" /></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="wifi" style="width:12px;height:12px;color:#534AB7;vertical-align:-2px"></i> Centralizzazione</label><select class="inp" id="no-ck-centr" style="font-size:.85rem;padding:8px 12px"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="droplets" style="width:12px;height:12px;color:#ef4444;vertical-align:-2px"></i> N. Contatori Acqua</label><input class="inp" type="number" id="no-ck-nacq" placeholder="0 se assenti" style="font-size:.85rem;padding:8px 12px" /></div>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Canone Lettura &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-lett" /></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Ulteria Care &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-care" /></div>' +
-          '</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Centralizzazione</label><select class="inp" id="no-ck-centr"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Contatori Acqua</label><input class="inp" type="number" id="no-ck-nacq" placeholder="0 se assenti" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Prezzo Cont. Acqua &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-pacq" style="font-size:.85rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Modello Cont. Acqua</label><select class="inp" id="no-ck-macq" style="font-size:.85rem;padding:8px 12px"><option>SMART-WB</option><option>CSU-R</option></select></div>' +
           '</div>' +
           '<div id="no-ck-riepilogo" style="background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:8px;font-size:.78rem"></div>';
         icons();
@@ -1144,17 +1173,25 @@ function showNuovaOffertaModal(cont) {
           var lett = parseFloat(document.getElementById("no-ck-lett").value) || 0;
           var care = parseFloat(document.getElementById("no-ck-care").value) || 0;
           var nAcq = parseInt(document.getElementById("no-ck-nacq").value) || 0;
-          var totForn = nRip * pRip;
-          var totAnnuo = (nRip + nAcq) * lett + nRip * care;
-          document.getElementById("no-ck-riepilogo").innerHTML =
-            "<strong>Riepilogo CK:</strong> " + nRip + " rip. x " + fmtEurDash(pRip) + " = " + fmtEurDash(totForn) +
-            (nAcq > 0 ? " | " + nAcq + " cont. acqua" : "") +
-            "<br>Canone annuo: " + fmtEurDash(totAnnuo) + "/anno" +
-            " (lettura " + fmtEurDash(lett) + " + care " + fmtEurDash(care) + ")";
+          var pAcq = parseFloat((document.getElementById("no-ck-pacq") || {}).value) || 0;
+          var totForn = nRip * pRip + nAcq * pAcq;
+          var totAnnuo = (nRip + nAcq) * lett + (nRip + nAcq) * care;
+          var rh = '<div style="background:#fff;padding:10px 14px;border-radius:8px;border:1px solid var(--border)">';
+          rh += '<strong style="font-size:.88rem">Riepilogo Materiali:</strong><br>';
+          rh += '<div style="display:flex;gap:16px;margin-top:6px;font-size:.85rem">';
+          rh += '<div><i data-lucide="thermometer" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> <strong>' + nRip + '</strong> rip. x ' + fmtEurDash(pRip) + ' = <strong>' + fmtEurDash(nRip * pRip) + '</strong></div>';
+          if (nAcq > 0) rh += '<div><i data-lucide="droplets" style="width:12px;height:12px;color:#ef4444;vertical-align:-2px"></i> <strong>' + nAcq + '</strong> cont. acqua x ' + fmtEurDash(pAcq) + ' = <strong>' + fmtEurDash(nAcq * pAcq) + '</strong></div>';
+          rh += '</div>';
+          rh += '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;gap:20px;font-size:.88rem">';
+          rh += '<div>Totale fornitura: <strong style="color:#009FE3">' + fmtEurDash(totForn) + '</strong></div>';
+          rh += '<div>Canone annuo: <strong style="color:#639922">' + fmtEurDash(totAnnuo) + '/anno</strong></div>';
+          rh += '</div></div>';
+          document.getElementById("no-ck-riepilogo").innerHTML = rh;
+          icons();
           document.getElementById("no-valore").value = totForn || "";
           document.getElementById("no-annuo").value = totAnnuo || "";
         }
-        ["no-ck-nrip", "no-ck-prip", "no-ck-lett", "no-ck-care", "no-ck-nacq"].forEach(function(id) {
+        ["no-ck-nrip", "no-ck-prip", "no-ck-lett", "no-ck-care", "no-ck-nacq", "no-ck-pacq"].forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.addEventListener("input", calcCK);
         });
@@ -1192,7 +1229,7 @@ function showNuovaOffertaModal(cont) {
     rDiv.style.display = "block";
     var html = "<strong>Riepilogo:</strong> " + esc(studio);
     if (rif) html += " \u2014 " + esc(rif);
-    if (selectedTipo && selectedTipo !== "_altro") html += " | <span class='badge' style='font-size:.6rem'>" + selectedTipo + "</span>";
+    if (_noTipo && _noTipo !== "_altro") html += " | <span class='badge' style='font-size:.7rem'>" + _noTipo + "</span>";
     rDiv.innerHTML = html;
   }
   studioInp.addEventListener("input", updateNoRiepilogo);
@@ -1203,8 +1240,8 @@ function showNuovaOffertaModal(cont) {
     var studio = studioInp.value.trim();
     if (!studio) { alert("Studio / Cliente obbligatorio"); return; }
 
-    var tipo = selectedTipo === "_altro" ? (document.getElementById("no-tipo-custom").value || "altro") : selectedTipo;
-    var macro = selectedMacro;
+    var tipo = _noTipo === "_altro" ? (document.getElementById("no-tipo-custom").value || "altro") : _noTipo;
+    var macro = _noMacro;
     if (tipo === "_altro" || !macro) macro = "";
 
     var payload = {
