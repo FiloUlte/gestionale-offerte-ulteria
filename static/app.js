@@ -509,7 +509,7 @@ function loadKpiCards() {
     if (!res.ok) return;
     var d = res.data;
     var kpiDefs = [
-      { key: "CK", label: "CK — Sostituzione Ripartitori", icon: "thermometer", color: "#009FE3", data: d.CK },
+      { key: "CK", label: "CK — Sostituzione Ripartitori", icon: "heater", color: "#009FE3", data: d.CK },
       { key: "CL", label: "CL — Commesse Lavori", icon: "wrench", color: "#EF9F27", data: d.CL },
       { key: "servizi", label: "Servizi", icon: "repeat", color: "#639922", data: d.servizi }
     ];
@@ -1146,9 +1146,9 @@ function showNuovaOffertaModal(cont) {
       var detDiv = document.getElementById("no-dettagli");
       if (val === "CK") {
         detDiv.style.display = "block";
-        detDiv.innerHTML = '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px"><i data-lucide="thermometer" style="width:16px;height:16px;vertical-align:-3px;color:#009FE3"></i> Dettagli CK — Ripartitori</div>' +
+        detDiv.innerHTML = '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px"><i data-lucide="heater" style="width:16px;height:16px;vertical-align:-3px;color:#009FE3"></i> Dettagli CK — Ripartitori</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
-          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="thermometer" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" style="font-size:.9rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="heater" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" style="font-size:.9rem;padding:8px 12px" /></div>' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Prezzo Rip. &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-prip" style="font-size:.9rem;padding:8px 12px" /></div>' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Modello Rip.</label><select class="inp" id="no-ck-mod" style="font-size:.85rem;padding:8px 12px"><option>E-ITN40</option><option>Q5.5</option></select></div>' +
           '</div>' +
@@ -1179,7 +1179,7 @@ function showNuovaOffertaModal(cont) {
           var rh = '<div style="background:#fff;padding:10px 14px;border-radius:8px;border:1px solid var(--border)">';
           rh += '<strong style="font-size:.88rem">Riepilogo Materiali:</strong><br>';
           rh += '<div style="display:flex;gap:16px;margin-top:6px;font-size:.85rem">';
-          rh += '<div><i data-lucide="thermometer" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> <strong>' + nRip + '</strong> rip. x ' + fmtEurDash(pRip) + ' = <strong>' + fmtEurDash(nRip * pRip) + '</strong></div>';
+          rh += '<div><i data-lucide="heater" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> <strong>' + nRip + '</strong> rip. x ' + fmtEurDash(pRip) + ' = <strong>' + fmtEurDash(nRip * pRip) + '</strong></div>';
           if (nAcq > 0) rh += '<div><i data-lucide="droplets" style="width:12px;height:12px;color:#ef4444;vertical-align:-2px"></i> <strong>' + nAcq + '</strong> cont. acqua x ' + fmtEurDash(pAcq) + ' = <strong>' + fmtEurDash(nAcq * pAcq) + '</strong></div>';
           rh += '</div>';
           rh += '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;gap:20px;font-size:.88rem">';
@@ -1477,7 +1477,7 @@ function renderNuova(c) {
 function wizStep1Html() {
   var h = '<div class="tmpl-cards">';
   h += '<div class="tmpl-card ' + (wizardData.template === "E40" ? "selected" : "") + '" id="tmpl-e40">';
-  h += '<div class="tmpl-card-icon"><i data-lucide="thermometer" style="width:36px;height:36px;color:var(--blue)"></i></div>';
+  h += '<div class="tmpl-card-icon"><i data-lucide="heater" style="width:36px;height:36px;color:var(--blue)"></i></div>';
   h += '<div class="tmpl-card-title">E-ITN40</div>';
   h += '<div class="tmpl-card-sub">Ripartitori E-ITN40</div></div>';
   h += '<div class="tmpl-card ' + (wizardData.template === "Q55" ? "selected" : "") + '" id="tmpl-q55">';

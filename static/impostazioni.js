@@ -43,7 +43,7 @@ function renderPage(config, agenti) {
   var tabs = [
     { id: "generale", label: "Generale", icon: "settings" },
     { id: "etichette", label: "Etichette", icon: "tag" },
-    { id: "modelli", label: "Modelli Apparecchio", icon: "thermometer" },
+    { id: "modelli", label: "Modelli Apparecchio", icon: "heater" },
     { id: "prezzi_inst", label: "Prezzi Installazione", icon: "wrench" },
     { id: "utenti", label: "Utenti", icon: "users" },
     { id: "email", label: "Email", icon: "mail" },
@@ -100,7 +100,7 @@ function renderPage(config, agenti) {
   /* Tab: Modelli Apparecchio */
   h += '<div class="sett-panel' + (settTab === "modelli" ? " active" : "") + '" id="pan-modelli">';
   var modCats = [
-    { cat: "ripartitore", label: "Ripartitori", icon: "thermometer" },
+    { cat: "ripartitore", label: "Ripartitori", icon: "heater" },
     { cat: "contatore_acqua", label: "Contatori Acqua", icon: "droplets" },
     { cat: "contatore_calore", label: "Contatori Calore", icon: "flame" },
     { cat: "concentratore", label: "Concentratori", icon: "wifi" }
@@ -114,7 +114,7 @@ function renderPage(config, agenti) {
     items.forEach(function(m) {
       h += "<tr>";
       h += "<td><strong>" + esc(m.nome) + "</strong></td>";
-      h += "<td><i data-lucide='" + (m.icona || "thermometer") + "' style='width:14px;height:14px'></i></td>";
+      h += "<td><i data-lucide='" + (m.icona || "heater") + "' style='width:14px;height:14px'></i></td>";
       h += "<td>" + (m.trasmissione_disponibile ? "Si" : "No") + "</td>";
       h += "<td>" + (m.dn_disponibile ? "Si" : "No") + "</td>";
       h += "<td>" + esc(m.tipo_lettura || "\u2014") + "</td>";

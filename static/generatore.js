@@ -246,7 +246,7 @@ function renderSection3() {
   /* Ripartitori */
   h += '<div class="gen-toggle' + (gen.rip_on ? " active" : "") + '" data-toggle="rip">';
   h += '<div class="gen-toggle-sw"></div>';
-  h += '<i data-lucide="thermometer" style="width:16px;height:16px;color:#f59e0b" class="gen-toggle-icon"></i>';
+  h += '<i data-lucide="heater" style="width:16px;height:16px;color:#f59e0b" class="gen-toggle-icon"></i>';
   h += '<div class="gen-toggle-label">Ripartitori di Calore</div></div>';
   if (gen.rip_on) {
     h += '<div style="padding:0 8px 12px">';
