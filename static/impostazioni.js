@@ -47,7 +47,8 @@ function renderPage(config, agenti) {
     { id: "prezzi_inst", label: "Prezzi Installazione", icon: "wrench" },
     { id: "utenti", label: "Utenti", icon: "users" },
     { id: "email", label: "Email", icon: "mail" },
-    { id: "prezzi", label: "Prezzi Base", icon: "euro" }
+    { id: "prezzi", label: "Prezzi Base", icon: "euro" },
+    { id: "importexport", label: "Import / Export", icon: "upload" }
   ];
 
   var h = '<div style="margin-bottom:12px"><a href="/" style="font-size:.82rem;color:var(--muted);text-decoration:none"><i data-lucide="arrow-left" style="width:14px;height:14px;vertical-align:-2px"></i> Home</a></div>';
@@ -74,11 +75,11 @@ function renderPage(config, agenti) {
 
   /* Tab 2: Etichette */
   h += '<div class="sett-panel' + (settTab === "etichette" ? " active" : "") + '" id="pan-etichette">';
-  var categorie = ["tipo_cliente", "stato_pipeline", "tipo_attivita", "motivo_perdita", "tipo_offerta", "settore"];
+  var categorie = ["tipo_cliente", "stato_pipeline", "tipo_attivita", "motivo_perdita", "tipo_offerta", "tipo_servizio", "settore"];
   var catLabels = {
     tipo_cliente: "Tipo Cliente", stato_pipeline: "Stato Pipeline",
     tipo_attivita: "Tipo Attivita", motivo_perdita: "Motivo Perdita",
-    tipo_offerta: "Tipo Offerta", settore: "Settore"
+    tipo_offerta: "Tipo Offerta", tipo_servizio: "Tipo Servizio", settore: "Settore"
   };
   categorie.forEach(function(cat) {
     var items = etichette.filter(function(e) { return e.categoria === cat; });
@@ -185,6 +186,35 @@ function renderPage(config, agenti) {
   });
   h += '<div class="mt12"><button class="btn btn-primary btn-sm" id="save-prezzi">Salva Prezzi</button></div>';
   h += "</div></div>";
+
+  /* Tab 8: Import / Export */
+  h += '<div class="sett-panel' + (settTab === "importexport" ? " active" : "") + '" id="pan-importexport">';
+
+  h += '<div class="g2 mb20">';
+  h += '<div class="card" style="text-align:center"><div class="sec-ttl">Esporta Offerte</div>';
+  h += '<div style="font-size:.82rem;color:var(--muted);margin-bottom:12px">Scarica CSV con tutte le offerte attive</div>';
+  h += '<a href="/api/export/offerte" class="btn btn-primary btn-sm" style="text-decoration:none"><i data-lucide="download" style="width:14px;height:14px"></i> Scarica CSV Offerte</a></div>';
+  h += '<div class="card" style="text-align:center"><div class="sec-ttl">Esporta Clienti</div>';
+  h += '<div style="font-size:.82rem;color:var(--muted);margin-bottom:12px">Scarica CSV con tutti i clienti in anagrafica</div>';
+  h += '<a href="/api/export/clienti" class="btn btn-primary btn-sm" style="text-decoration:none"><i data-lucide="download" style="width:14px;height:14px"></i> Scarica CSV Clienti</a></div>';
+  h += "</div>";
+
+  h += '<div class="g2 mb20">';
+  h += '<div class="card"><div class="sec-ttl">Importa Offerte</div>';
+  h += '<div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Carica un file CSV con il tracciato standard</div>';
+  h += '<a href="/api/import/template/offerte" style="font-size:.72rem;color:var(--blue)">Scarica template CSV offerte</a>';
+  h += '<div class="mt12"><input type="file" accept=".csv" id="import-offerte-file" style="font-size:.78rem" /></div>';
+  h += '<button class="btn btn-sm btn-primary mt8" id="btn-import-offerte" disabled>Importa Offerte</button>';
+  h += '<div id="import-offerte-result" class="mt8" style="font-size:.78rem"></div>';
+  h += "</div>";
+
+  h += '<div class="card"><div class="sec-ttl">Importa Clienti</div>';
+  h += '<div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Carica un file CSV con il tracciato standard</div>';
+  h += '<a href="/api/import/template/clienti" style="font-size:.72rem;color:var(--blue)">Scarica template CSV clienti</a>';
+  h += '<div class="mt12"><input type="file" accept=".csv" id="import-clienti-file" style="font-size:.78rem" /></div>';
+  h += '<button class="btn btn-sm btn-primary mt8" id="btn-import-clienti" disabled>Importa Clienti</button>';
+  h += '<div id="import-clienti-result" class="mt8" style="font-size:.78rem"></div>';
+  h += "</div></div></div>";
 
   document.getElementById("sett-page").innerHTML = h;
   icons();
@@ -305,6 +335,50 @@ function attachEvents(config, agenti) {
     });
     api("POST", "/api/config", data).then(function() { alert("Prezzi salvati"); });
   });
+
+  /* Import offerte */
+  var impOffFile = document.getElementById("import-offerte-file");
+  var btnImpOff = document.getElementById("btn-import-offerte");
+  if (impOffFile && btnImpOff) {
+    impOffFile.addEventListener("change", function() { btnImpOff.disabled = !this.files.length; });
+    btnImpOff.addEventListener("click", function() {
+      var formData = new FormData();
+      formData.append("file", impOffFile.files[0]);
+      fetch("/api/import/offerte", { method: "POST", body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+          var area = document.getElementById("import-offerte-result");
+          if (res.ok) {
+            var d = res.data;
+            area.innerHTML = '<div style="color:#639922">Importate: ' + d.imported + " | Saltate: " + d.skipped + (d.errors && d.errors.length ? " | Errori: " + d.errors.length : "") + "</div>";
+          } else {
+            area.innerHTML = '<div style="color:#ef4444">' + (res.error || "Errore") + "</div>";
+          }
+        });
+    });
+  }
+
+  /* Import clienti */
+  var impCliFile = document.getElementById("import-clienti-file");
+  var btnImpCli = document.getElementById("btn-import-clienti");
+  if (impCliFile && btnImpCli) {
+    impCliFile.addEventListener("change", function() { btnImpCli.disabled = !this.files.length; });
+    btnImpCli.addEventListener("click", function() {
+      var formData = new FormData();
+      formData.append("file", impCliFile.files[0]);
+      fetch("/api/import/clienti", { method: "POST", body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+          var area = document.getElementById("import-clienti-result");
+          if (res.ok) {
+            var d = res.data;
+            area.innerHTML = '<div style="color:#639922">Importati: ' + d.imported + " | Aggiornati: " + d.updated + " | Saltati: " + d.skipped + "</div>";
+          } else {
+            area.innerHTML = '<div style="color:#ef4444">' + (res.error || "Errore") + "</div>";
+          }
+        });
+    });
+  }
 }
 
 document.addEventListener("DOMContentLoaded", function() { loadPage(); });

@@ -125,15 +125,15 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","versione","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","importo","importo_annuo","stato","giorni","azioni"];
-var COL_LABELS = {checkbox:"",numero:"N.",versione:"Ver.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",importo:"Importo",importo_annuo:"Canone/anno",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+var ALL_COLS = ["checkbox","numero","versione","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","segnalatore","importo","importo_annuo","stato","giorni","azioni"];
+var COL_LABELS = {checkbox:"",numero:"N.",versione:"Ver.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",segnalatore:"Segnal.",importo:"Importo",importo_annuo:"Canone/anno",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
 
 function loadDashFilters() {
   try {
     var saved = localStorage.getItem("dashFilters");
     if (saved) return JSON.parse(saved);
   } catch (e) { /* */ }
-  return { stati: [], agente_id: "", template: "", q: "", dal: "", al: "" };
+  return { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "" };
 }
 
 function saveDashFilters() {
@@ -189,6 +189,9 @@ function dashFilterSort() {
   }
   if (f.template) {
     list = list.filter(function(o) { return o.template === f.template; });
+  }
+  if (f.tipo_servizio) {
+    list = list.filter(function(o) { return o.tipo_servizio === f.tipo_servizio; });
   }
   if (f.q) {
     var q = f.q.toLowerCase();
@@ -264,6 +267,21 @@ function buildDashboard(c) {
   });
   h += "</div>";
 
+  /* Servizi filter buttons */
+  h += '<div class="fac gap4 mb8">';
+  var servTabs = [
+    { val: "RK", label: "RK", bg: "#E6F5FC", color: "#0080B8" },
+    { val: "RD", label: "RD", bg: "#EAF3DE", color: "#639922" },
+    { val: "MANSIS", label: "MANSIS", bg: "#FAEEDA", color: "#854F0B" },
+    { val: "MANCT", label: "MANCT", bg: "#EEEDFE", color: "#534AB7" }
+  ];
+  servTabs.forEach(function(t) {
+    var active = dashFilters.tipo_servizio === t.val;
+    var style = active ? "background:" + t.color + ";color:#fff" : "background:" + t.bg + ";color:" + t.color;
+    h += '<button class="btn btn-sm" data-serv-filter="' + t.val + '" style="' + style + ';font-weight:700;font-size:.65rem;border-radius:20px;padding:3px 10px;border:none">' + t.label + "</button>";
+  });
+  h += "</div>";
+
   /* Filter bar */
   h += '<div class="fac gap8 mb12 flex-wrap" style="flex-wrap:wrap">';
   h += '<select class="inp" id="f-agente" style="width:150px;padding:5px 8px;font-size:.75rem"><option value="">Tutti gli agenti</option>';
@@ -303,7 +321,7 @@ function buildDashboard(c) {
     { key: "data_creazione", w: "85px" },
     { key: "nome_studio", w: "150px" }, { key: "nome_condominio", w: "130px" },
     { key: "template", w: "70px" }, { key: "tipo_offerta", w: "80px" },
-    { key: "natura", w: "55px" }, { key: "agente_id", w: "100px" },
+    { key: "natura", w: "55px" }, { key: "agente_id", w: "100px" }, { key: "segnalatore", w: "70px" },
     { key: "importo", w: "85px", cls: "r" }, { key: "importo_annuo", w: "85px", cls: "r" },
     { key: "stato", w: "110px" },
     { key: "giorni", w: "60px" }, { key: "azioni", w: "100px" }
@@ -359,6 +377,15 @@ function buildDashboard(c) {
       h += '<td><span class="badge b-gray" style="font-size:.6rem">' + (natMap[o.natura] || "\u2014") + "</span></td>";
     }
     if (dashVisibleCols.indexOf("agente_id") >= 0) h += '<td class="editable" data-field="agente_id">' + (o.agente_id ? agenteHtml(o.agente_id) : '<span style="color:var(--muted);font-size:.72rem">Non assegnato</span>') + "</td>";
+    if (dashVisibleCols.indexOf("segnalatore") >= 0) {
+      var segNome = o.segnalatore_nome || "";
+      if (segNome) {
+        var segIni = segNome.substring(0, 3).toUpperCase();
+        h += '<td><span class="badge b-gray" style="font-size:.58rem" title="' + esc(segNome) + '">' + segIni + "</span></td>";
+      } else {
+        h += '<td style="color:var(--muted);font-size:.72rem">\u2014</td>';
+      }
+    }
     if (dashVisibleCols.indexOf("importo") >= 0) h += '<td class="num editable" data-field="importo">' + (imp ? fmtEurDash(imp) : '<span style="color:var(--muted)">\u2014</span>') + "</td>";
     if (dashVisibleCols.indexOf("importo_annuo") >= 0) h += '<td class="num">' + (o.importo_servizio_annuo ? fmtEurDash(o.importo_servizio_annuo) : "\u2014") + "</td>";
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
@@ -455,6 +482,17 @@ function attachDashEvents(c) {
     });
   });
 
+  /* Servizi filter buttons */
+  c.querySelectorAll("[data-serv-filter]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var val = this.getAttribute("data-serv-filter");
+      dashFilters.tipo_servizio = dashFilters.tipo_servizio === val ? "" : val;
+      dashPage = 0;
+      saveDashFilters();
+      buildDashboard(c);
+    });
+  });
+
   /* Filters */
   var fAgente = document.getElementById("f-agente");
   if (fAgente) fAgente.addEventListener("change", function() { dashFilters.agente_id = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
@@ -472,7 +510,7 @@ function attachDashEvents(c) {
   if (fAl) fAl.addEventListener("change", function() { dashFilters.al = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
   var fReset = document.getElementById("f-reset");
   if (fReset) fReset.addEventListener("click", function() {
-    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "" };
+    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "" };
     dashSort = { col: null, dir: null };
     dashPage = 0;
     localStorage.removeItem("dashFilters");

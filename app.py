@@ -284,6 +284,40 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (prodotto_id) REFERENCES prodotti(id)
         );
+
+        /* ── Prompt 4: Segnalatori ── */
+        CREATE TABLE IF NOT EXISTS segnalatori (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'segnalatore',
+            azienda TEXT, email TEXT, telefono TEXT,
+            provvigione_default_pct REAL DEFAULT 0,
+            note TEXT, attivo INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS offerte_segnalatori (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offerta_id INTEGER NOT NULL,
+            segnalatore_id INTEGER NOT NULL,
+            provvigione_pct REAL DEFAULT 0,
+            importo_base REAL DEFAULT 0,
+            provvigione_euro REAL DEFAULT 0,
+            stato_pagamento TEXT DEFAULT 'da_pagare',
+            data_pagamento DATE, note TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (offerta_id) REFERENCES offerte(id),
+            FOREIGN KEY (segnalatore_id) REFERENCES segnalatori(id)
+        );
+        CREATE TABLE IF NOT EXISTS oggetti_agenti_storico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            oggetto_id INTEGER NOT NULL,
+            agente_id_precedente INTEGER,
+            agente_id_nuovo INTEGER NOT NULL,
+            motivo TEXT, data_cambio DATE NOT NULL,
+            effettuato_da TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (oggetto_id) REFERENCES oggetti(id)
+        );
     """)
 
     # ── Step 7: Migrations for existing DBs ──
@@ -363,6 +397,10 @@ def init_db():
         "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_tipo TEXT",
         "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_cad REAL DEFAULT 0",
         "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_totale REAL DEFAULT 0",
+        # ── Prompt 4 migrations ──
+        "ALTER TABLE offerte ADD COLUMN segnalatore_id INTEGER REFERENCES segnalatori(id)",
+        "ALTER TABLE offerte ADD COLUMN tipo_servizio TEXT",
+        "ALTER TABLE offerte ADD COLUMN tipo_servizio_secondario TEXT",
     ]
     for stmt in migrations:
         try:
@@ -421,12 +459,23 @@ def init_db():
             ("settore", "progettisti", "#EEEDFE", "#534AB7"),
             ("settore", "gestori", "#EAF3DE", "#639922"),
             ("settore", "costruttori", "#FAEEDA", "#854F0B"),
+            # Prompt 4: tipo_servizio
+            ("tipo_servizio", "RK", "#E6F5FC", "#0080B8"),
+            ("tipo_servizio", "RD", "#EAF3DE", "#639922"),
+            ("tipo_servizio", "MANSIS", "#FAEEDA", "#854F0B"),
+            ("tipo_servizio", "MANCT", "#EEEDFE", "#534AB7"),
         ]
         for cat, val, bg, txt in defaults:
             conn.execute(
                 "INSERT INTO etichette (categoria,valore,colore_bg,colore_testo) VALUES (?,?,?,?)",
                 (cat, val, bg, txt),
             )
+
+    # ── Prompt 4: Default segnalatori ──
+    sc = conn.execute("SELECT COUNT(*) FROM segnalatori").fetchone()[0]
+    if sc == 0:
+        conn.execute("INSERT INTO segnalatori (nome,tipo,provvigione_default_pct) VALUES (?,?,?)", ("Piaggi", "manutentore", 0))
+        conn.execute("INSERT INTO segnalatori (nome,tipo,provvigione_default_pct) VALUES (?,?,?)", ("Merlotti", "segnalatore", 0))
 
     # ── Prompt 1: Insert default modelli apparecchio ──
     mc = conn.execute("SELECT COUNT(*) FROM modelli_apparecchio").fetchone()[0]
@@ -2419,6 +2468,398 @@ def api_attivita_badge_count():
     ).fetchone()[0]
     conn.close()
     return jsonify({"ok": True, "count": count})
+
+
+# ── Prompt 4: Segnalatori ────────────────────────────────────────────
+
+@app.route("/segnalatori")
+def segnalatori_page():
+    return render_template("segnalatori.html")
+
+
+@app.route("/api/segnalatori", methods=["GET"])
+def api_segnalatori_list():
+    conn = get_db()
+    q = request.args.get("q", "").strip()
+    sql = "SELECT s.*, COUNT(os.id) as n_offerte, COALESCE(SUM(os.provvigione_euro),0) as tot_provvigioni, COALESCE(SUM(CASE WHEN os.stato_pagamento='da_pagare' THEN os.provvigione_euro ELSE 0 END),0) as da_pagare FROM segnalatori s LEFT JOIN offerte_segnalatori os ON s.id=os.segnalatore_id"
+    params = []
+    if q:
+        sql += " WHERE s.nome LIKE ?"
+        params.append("%" + q + "%")
+    sql += " GROUP BY s.id ORDER BY s.nome"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/segnalatori", methods=["POST"])
+def api_segnalatori_create():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO segnalatori (nome,tipo,azienda,email,telefono,provvigione_default_pct,note,created_at) VALUES (?,?,?,?,?,?,?,?)",
+        (data.get("nome", ""), data.get("tipo", "segnalatore"), data.get("azienda", ""),
+         data.get("email", ""), data.get("telefono", ""), data.get("provvigione_default_pct", 0),
+         data.get("note", ""), now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM segnalatori WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/segnalatori/<int:sid>", methods=["PATCH"])
+def api_segnalatori_update(sid):
+    data = request.json
+    conn = get_db()
+    allowed = ["nome", "tipo", "azienda", "email", "telefono", "provvigione_default_pct", "note", "attivo"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(k + "=?")
+            vals.append(data[k])
+    if sets:
+        vals.append(sid)
+        conn.execute("UPDATE segnalatori SET " + ",".join(sets) + " WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM segnalatori WHERE id=?", (sid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/segnalatori/<int:sid>", methods=["GET"])
+def api_segnalatori_detail(sid):
+    conn = get_db()
+    seg = conn.execute("SELECT * FROM segnalatori WHERE id=?", (sid,)).fetchone()
+    if not seg:
+        conn.close()
+        return jsonify({"ok": False, "error": "Non trovato"}), 404
+    offerte = conn.execute(
+        "SELECT os.*, o.numero, o.nome_studio, o.nome_condominio, o.importo, o.stato "
+        "FROM offerte_segnalatori os JOIN offerte o ON os.offerta_id=o.id "
+        "WHERE os.segnalatore_id=? ORDER BY os.created_at DESC", (sid,)
+    ).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": {"segnalatore": dict(seg), "offerte": [dict(o) for o in offerte]}})
+
+
+@app.route("/api/segnalatori/search", methods=["GET"])
+def api_segnalatori_search():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, nome, tipo, provvigione_default_pct FROM segnalatori WHERE attivo=1 AND nome LIKE ? LIMIT 10",
+        ("%" + q + "%",),
+    ).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/offerte/<int:oid>/segnalatore", methods=["PATCH"])
+def api_offerte_segnalatore(oid):
+    data = request.json
+    conn = get_db()
+    seg_id = data.get("segnalatore_id")
+    pct = data.get("provvigione_pct", 0)
+    conn.execute("UPDATE offerte SET segnalatore_id=? WHERE id=?", (seg_id, oid))
+    off = conn.execute("SELECT importo FROM offerte WHERE id=?", (oid,)).fetchone()
+    importo_base = (off["importo"] or 0) if off else 0
+    provv_euro = importo_base * pct / 100
+    existing = conn.execute("SELECT id FROM offerte_segnalatori WHERE offerta_id=? AND segnalatore_id=?", (oid, seg_id)).fetchone()
+    if existing:
+        conn.execute("UPDATE offerte_segnalatori SET provvigione_pct=?, importo_base=?, provvigione_euro=? WHERE id=?",
+                     (pct, importo_base, provv_euro, existing["id"]))
+    else:
+        conn.execute("INSERT INTO offerte_segnalatori (offerta_id,segnalatore_id,provvigione_pct,importo_base,provvigione_euro) VALUES (?,?,?,?,?)",
+                     (oid, seg_id, pct, importo_base, provv_euro))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/offerte-segnalatori/<int:osid>/paga", methods=["PATCH"])
+def api_offerte_segnalatori_paga(osid):
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d")
+    conn = get_db()
+    conn.execute("UPDATE offerte_segnalatori SET stato_pagamento='pagato', data_pagamento=? WHERE id=?", (data.get("data_pagamento", now), osid))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# ── Prompt 4: Cambio Agente ──────────────────────────────────────────
+
+@app.route("/api/oggetti/<int:oid>/cambio-agente", methods=["POST"])
+def api_oggetti_cambio_agente(oid):
+    data = request.json
+    conn = get_db()
+    obj = conn.execute("SELECT agente_id FROM oggetti WHERE id=?", (oid,)).fetchone()
+    old_id = obj["agente_id"] if obj else None
+    new_id = data.get("agente_id")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "INSERT INTO oggetti_agenti_storico (oggetto_id,agente_id_precedente,agente_id_nuovo,motivo,data_cambio,effettuato_da) VALUES (?,?,?,?,?,?)",
+        (oid, old_id, new_id, data.get("motivo", ""), data.get("data_cambio", now[:10]), data.get("effettuato_da", "")),
+    )
+    conn.execute("UPDATE oggetti SET agente_id=?, updated_at=? WHERE id=?", (new_id, now, oid))
+    conn.execute(
+        "INSERT INTO timeline_eventi (tipo_evento,descrizione,oggetto_id,utente,created_at) VALUES (?,?,?,?,?)",
+        ("cambio_agente", "Agente cambiato", oid, data.get("effettuato_da", ""), now),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# ── Prompt 4: Dashboard Servizi ──────────────────────────────────────
+
+@app.route("/api/dashboard/servizi", methods=["GET"])
+def api_dashboard_servizi():
+    conn = get_db()
+    agente_id = request.args.get("agente_id")
+    sql = "SELECT tipo_servizio, COUNT(*) as count, SUM(CASE WHEN stato='preso_lavoro' THEN 1 ELSE 0 END) as prese, SUM(CASE WHEN stato='preso_lavoro' THEN importo_servizio_annuo ELSE 0 END) as canone_annuo FROM offerte WHERE tipo_servizio IS NOT NULL AND stato_versione='attiva'"
+    params = []
+    if agente_id:
+        sql += " AND agente_id=?"
+        params.append(int(agente_id))
+    sql += " GROUP BY tipo_servizio"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+# ── Prompt 4: Export CSV ─────────────────────────────────────────────
+
+@app.route("/api/export/offerte", methods=["GET"])
+def api_export_offerte():
+    from flask import Response
+    conn = get_db()
+    sql = "SELECT o.*, a.nome as ag_nome, a.cognome as ag_cognome, s.nome as seg_nome FROM offerte o LEFT JOIN agenti a ON o.agente_id=a.id LEFT JOIN segnalatori s ON o.segnalatore_id=s.id WHERE o.stato_versione='attiva'"
+    params = []
+    if request.args.get("agente_id"):
+        sql += " AND o.agente_id=?"
+        params.append(int(request.args["agente_id"]))
+    if request.args.get("dal"):
+        sql += " AND o.data_creazione>=?"
+        params.append(request.args["dal"])
+    if request.args.get("al"):
+        sql += " AND o.data_creazione<=?"
+        params.append(request.args["al"] + " 23:59:59")
+    sql += " ORDER BY o.numero DESC"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+
+    header = "NUMERO;DATA;AGENTE;CLIENTE;VIA_CONDOMINIO;COMUNE;PROVINCIA;TIPO_OFFERTA;NATURA;TIPO_SERVIZIO;VALORE_FORNITURA;VALORE_SERVIZIO_ANNUO;STATO;SEGNALATORE;PROVVIGIONE_SEGNALATORE_PCT;IS_ACCORDO_QUADRO;NOTE\n"
+    lines = []
+    for r in rows:
+        ag = (r["ag_nome"] or "") + " " + (r["ag_cognome"] or "")
+        d = r["data_creazione"][:10] if r["data_creazione"] else ""
+        if d and "-" in d:
+            parts = d.split("-")
+            d = parts[2] + "/" + parts[1] + "/" + parts[0]
+        line = ";".join([
+            str(r["numero"] or ""), d, ag.strip(), r["nome_studio"] or "",
+            r["via"] or "", r["citta"] or "", "", r["tipo_offerta"] or "",
+            r["natura"] or "", r["tipo_servizio"] or "",
+            str(r["importo"] or ""), str(r["importo_servizio_annuo"] or ""),
+            r["stato"] or "", r["seg_nome"] or "", "",
+            str(r["is_accordo_quadro"] or 0), (r["note"] or "").replace(";", ",")
+        ])
+        lines.append(line)
+
+    csv_content = "\ufeff" + header + "\n".join(lines)
+    return Response(csv_content, mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment;filename=offerte_ulteria.csv"})
+
+
+@app.route("/api/export/clienti", methods=["GET"])
+def api_export_clienti():
+    from flask import Response
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM clienti ORDER BY nome_studio").fetchall()
+    conn.close()
+    header = "NOME_STUDIO;REFERENTE;VIA;CIVICO;COMUNE;CAP;PROVINCIA;EMAIL;TELEFONO;TIPO_CLIENTE;SETTORE;NOTE\n"
+    lines = []
+    for r in rows:
+        line = ";".join([
+            r["nome_studio"] or "", r["referente"] or "", r["via"] or "", "",
+            r["citta"] or "", r["cap"] or "", "", r["email"] or "",
+            r["telefono"] or "", r["tipo_cliente"] or "", r["settore"] or "",
+            (r["note"] or "").replace(";", ",")
+        ])
+        lines.append(line)
+    csv_content = "\ufeff" + header + "\n".join(lines)
+    return Response(csv_content, mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment;filename=clienti_ulteria.csv"})
+
+
+@app.route("/api/import/template/offerte", methods=["GET"])
+def api_import_template_offerte():
+    from flask import Response
+    csv = "\ufeffNUMERO;DATA;AGENTE;CLIENTE;VIA_CONDOMINIO;COMUNE;PROVINCIA;TIPO_OFFERTA;NATURA;TIPO_SERVIZIO;VALORE_FORNITURA;VALORE_SERVIZIO_ANNUO;STATO;SEGNALATORE;PROVVIGIONE_SEGNALATORE_PCT;IS_ACCORDO_QUADRO;NOTE\n"
+    csv += "#26001;01/01/2026;FB;Studio Rossi;Via Roma 1;Monza;;installazione;nuovo;RK;12400;1800;richiamato;Piaggi;3;0;Esempio\n"
+    return Response(csv, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=template_offerte.csv"})
+
+
+@app.route("/api/import/template/clienti", methods=["GET"])
+def api_import_template_clienti():
+    from flask import Response
+    csv = "\ufeffNOME_STUDIO;REFERENTE;VIA;CIVICO;COMUNE;CAP;PROVINCIA;EMAIL;TELEFONO;TIPO_CLIENTE;SETTORE;NOTE\n"
+    csv += "#Studio Esempio;Mario Rossi;Via Roma;1;Monza;20900;;info@studio.it;039123456;Amministratore;amministratori;Esempio\n"
+    return Response(csv, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=template_clienti.csv"})
+
+
+@app.route("/api/import/offerte", methods=["POST"])
+def api_import_offerte():
+    import csv as csvmod
+    import io
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "Nessun file"}), 400
+    content = f.read().decode("utf-8-sig")
+    reader = csvmod.DictReader(io.StringIO(content), delimiter=";")
+
+    conn = get_db()
+    agenti_map = {}
+    for a in conn.execute("SELECT id, nome, cognome FROM agenti").fetchall():
+        ini = (a["nome"][0] if a["nome"] else "") + (a["cognome"][0] if a["cognome"] else "")
+        agenti_map[ini.upper()] = a["id"]
+        agenti_map[(a["nome"] + " " + a["cognome"]).strip().upper()] = a["id"]
+
+    imported = 0
+    skipped = 0
+    errors = []
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for i, row in enumerate(reader):
+        try:
+            if not row.get("CLIENTE") and not row.get("NUMERO"):
+                skipped += 1
+                continue
+            # Parse agent (handle "FB / PIAGGI")
+            ag_str = (row.get("AGENTE") or "").strip()
+            agente_id = None
+            segnalatore_nome = None
+            if "/" in ag_str:
+                parts = ag_str.split("/")
+                ag_str = parts[0].strip()
+                segnalatore_nome = parts[1].strip() if len(parts) > 1 else None
+            agente_id = agenti_map.get(ag_str.upper())
+
+            # Parse importo (handle Excel formulas)
+            importo = row.get("VALORE_FORNITURA", "") or ""
+            if str(importo).startswith("="):
+                importo = 0
+            else:
+                try:
+                    importo = float(str(importo).replace(",", ".")) if importo else None
+                except ValueError:
+                    importo = None
+
+            importo_annuo = row.get("VALORE_SERVIZIO_ANNUO", "") or ""
+            try:
+                importo_annuo = float(str(importo_annuo).replace(",", ".")) if importo_annuo else None
+            except ValueError:
+                importo_annuo = None
+
+            # Parse date
+            data = row.get("DATA", "")
+            if data and "/" in data:
+                parts = data.split("/")
+                if len(parts) == 3:
+                    data = parts[2] + "-" + parts[1] + "-" + parts[0]
+
+            # Find or create client
+            nome_studio = (row.get("CLIENTE") or "").strip()
+            cliente = conn.execute("SELECT id FROM clienti WHERE LOWER(nome_studio)=LOWER(?)", (nome_studio,)).fetchone()
+            if not cliente and nome_studio:
+                conn.execute("INSERT INTO clienti (nome_studio,citta,data_inserimento) VALUES (?,?,?)",
+                             (nome_studio, row.get("COMUNE", ""), now))
+
+            numero = row.get("NUMERO", "")
+            try:
+                numero = int(str(numero).replace("X", "").replace("x", "").strip()) if numero else None
+            except ValueError:
+                numero = None
+
+            conn.execute(
+                """INSERT INTO offerte (numero,nome_studio,via,citta,tipo_offerta,natura,tipo_servizio,
+                   importo,importo_servizio_annuo,stato,agente_id,data_creazione,
+                   is_accordo_quadro,stato_versione,versione,note)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (numero, nome_studio, row.get("VIA_CONDOMINIO", ""), row.get("COMUNE", ""),
+                 row.get("TIPO_OFFERTA", "installazione"), row.get("NATURA", "nuovo"),
+                 row.get("TIPO_SERVIZIO") or None, importo, importo_annuo,
+                 row.get("STATO", "richiamato"), agente_id,
+                 (data + " 00:00:00") if data else now,
+                 int(row.get("IS_ACCORDO_QUADRO", 0) or 0), "attiva", "A",
+                 row.get("NOTE", "")),
+            )
+
+            # Handle segnalatore
+            if segnalatore_nome:
+                seg = conn.execute("SELECT id FROM segnalatori WHERE nome LIKE ?", ("%" + segnalatore_nome + "%",)).fetchone()
+                if seg:
+                    conn.execute("UPDATE offerte SET segnalatore_id=? WHERE rowid=last_insert_rowid()", (seg["id"],))
+
+            imported += 1
+        except Exception as e:
+            skipped += 1
+            errors.append({"riga": i + 2, "errore": str(e)})
+
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "data": {"imported": imported, "skipped": skipped, "errors": errors}})
+
+
+@app.route("/api/import/clienti", methods=["POST"])
+def api_import_clienti():
+    import csv as csvmod
+    import io
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "Nessun file"}), 400
+    content = f.read().decode("utf-8-sig")
+    reader = csvmod.DictReader(io.StringIO(content), delimiter=";")
+
+    conn = get_db()
+    imported = 0
+    updated = 0
+    skipped = 0
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for i, row in enumerate(reader):
+        try:
+            nome = (row.get("NOME_STUDIO") or "").strip()
+            if not nome:
+                skipped += 1
+                continue
+            existing = conn.execute("SELECT id FROM clienti WHERE LOWER(nome_studio)=LOWER(?)", (nome,)).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE clienti SET via=COALESCE(NULLIF(?,'')),citta=COALESCE(NULLIF(?,'')),cap=COALESCE(NULLIF(?,'')),email=COALESCE(NULLIF(?,'')),telefono=COALESCE(NULLIF(?,'')),referente=COALESCE(NULLIF(?,'')),tipo_cliente=COALESCE(NULLIF(?,'')),settore=COALESCE(NULLIF(?,'')) WHERE id=?",
+                    (row.get("VIA", ""), row.get("COMUNE", ""), row.get("CAP", ""),
+                     row.get("EMAIL", ""), row.get("TELEFONO", ""), row.get("REFERENTE", ""),
+                     row.get("TIPO_CLIENTE", ""), row.get("SETTORE", ""), existing["id"]),
+                )
+                updated += 1
+            else:
+                conn.execute(
+                    "INSERT INTO clienti (nome_studio,via,citta,cap,email,telefono,referente,tipo_cliente,settore,note,data_inserimento) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (nome, row.get("VIA", ""), row.get("COMUNE", ""), row.get("CAP", ""),
+                     row.get("EMAIL", ""), row.get("TELEFONO", ""), row.get("REFERENTE", ""),
+                     row.get("TIPO_CLIENTE", "Amministratore"), row.get("SETTORE", ""),
+                     row.get("NOTE", ""), now),
+                )
+                imported += 1
+        except Exception as e:
+            skipped += 1
+
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "data": {"imported": imported, "updated": updated, "skipped": skipped}})
 
 
 # ── Startup ──────────────────────────────────────────────────────────
