@@ -920,9 +920,12 @@ function showMotivoPerdita(oid, oldStato, cont) {
   }
 }
 
-/* ─── Nuova Offerta Modal ─── */
+/* ─── Nuova Offerta Modal (intelligente) ─── */
+
+var _noAcClienti = [];
 
 function showNuovaOffertaModal(cont) {
+  closeModal();
   var overlay = document.createElement("div");
   overlay.className = "modal-overlay show";
   overlay.id = "modal-overlay";
@@ -930,8 +933,8 @@ function showNuovaOffertaModal(cont) {
 
   var modal = document.createElement("div");
   modal.className = "modal";
-  modal.style.width = "720px";
-  modal.style.maxHeight = "90vh";
+  modal.style.width = "800px";
+  modal.style.maxHeight = "92vh";
   modal.style.overflowY = "auto";
 
   var header = document.createElement("div");
@@ -940,51 +943,100 @@ function showNuovaOffertaModal(cont) {
 
   var body = document.createElement("div");
   body.className = "modal-body";
+  body.id = "no-body";
 
-  var agOpts = '<option value="">-- Seleziona --</option>';
+  var agOpts = '<option value="">-- Seleziona agente --</option>';
   agenti.forEach(function(a) {
     agOpts += '<option value="' + a.id + '">' + esc(a.nome + " " + a.cognome) + "</option>";
   });
 
-  var macroOpts = '<option value="">-- Nessuna --</option>';
-  macroOpts += '<option value="installazione">Installazione</option>';
-  macroOpts += '<option value="servizi">Servizi</option>';
-  macroOpts += '<option value="cc_modus">CC-Modus</option>';
-  macroOpts += '<option value="cu_unitron">CU-Unitron</option>';
-  macroOpts += '<option value="fornitura">Fornitura</option>';
-  macroOpts += '<option value="interventi">Interventi</option>';
+  var sottotipiCK = [
+    { val: "CK", label: "CK — Sostituzione Ripartitori", macro: "installazione" },
+    { val: "CL", label: "CL — Commessa Lavori", macro: "installazione" },
+    { val: "RK", label: "RK — Lettura Ripartitori", macro: "servizi" },
+    { val: "RD", label: "RD — Lettura Diretta", macro: "servizi" },
+    { val: "MANSIS", label: "MANSIS — Manutenzione Sistemi", macro: "servizi" },
+    { val: "MANCT", label: "MANCT — Manutenzione CT", macro: "servizi" },
+    { val: "MAN-DOMO", label: "MAN-DOMO", macro: "servizi" },
+    { val: "cc_modus", label: "CC-Modus", macro: "cc_modus" },
+    { val: "cu_unitron", label: "CU-Unitron", macro: "cu_unitron" },
+    { val: "MISURATORI", label: "Fornitura Misuratori", macro: "fornitura" },
+    { val: "RICAMBI", label: "Fornitura Ricambi", macro: "fornitura" },
+    { val: "CM", label: "Intervento CM", macro: "interventi" },
+    { val: "_altro", label: "Altro (campo libero)", macro: "" }
+  ];
 
   var bh = "";
-  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
 
-  bh += '<div class="form-field"><label>Studio / Cliente *</label><input class="inp" id="no-studio" /></div>';
-  bh += '<div class="form-field"><label>Agente *</label><select class="inp" id="no-agente">' + agOpts + "</select></div>";
+  /* ── SEZIONE 1: Cliente ── */
+  bh += '<div style="border-left:3px solid var(--blue);padding-left:14px;margin-bottom:16px">';
+  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="user" style="width:14px;height:14px;vertical-align:-2px"></i> Cliente</div>';
+  bh += '<div style="position:relative"><input class="inp" id="no-studio" placeholder="Digita per cercare o inserisci nuovo..." style="width:100%" />';
+  bh += '<div id="no-ac-drop" style="position:absolute;top:100%;left:0;right:0;display:none" class="ac-drop"></div></div>';
+  bh += '<label style="font-size:.75rem;display:flex;align-items:center;gap:4px;margin-top:6px;cursor:pointer"><input type="checkbox" id="no-save-cli" checked /> Salva in anagrafica clienti</label>';
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">';
+  bh += '<input class="inp" id="no-cli-via" placeholder="Via cliente" style="font-size:.78rem" />';
+  bh += '<input class="inp" id="no-cli-citta" placeholder="Citta cliente" style="font-size:.78rem" />';
+  bh += '<input class="inp" id="no-cli-email" placeholder="Email" style="font-size:.78rem" />';
+  bh += '<input class="inp" id="no-cli-tel" placeholder="Telefono" style="font-size:.78rem" />';
+  bh += "</div></div>";
 
-  bh += '<div class="form-field"><label>Nome Condominio</label><input class="inp" id="no-cond-nome" /></div>';
-  bh += '<div class="form-field"><label>Via Condominio *</label><input class="inp" id="no-cond-via" /></div>';
-
-  bh += '<div class="form-field"><label>Comune *</label><input class="inp" id="no-cond-comune" /></div>';
-  bh += '<div class="form-field"><label>Provincia</label><input class="inp" id="no-cond-prov" /></div>';
-
-  bh += '<div class="form-field"><label>Macro Categoria</label><select class="inp" id="no-macro">' + macroOpts + "</select></div>";
-  bh += '<div class="form-field"><label>Sottotipo</label><input class="inp" id="no-sottotipo" placeholder="es. CK, RK, MANSIS..." /></div>';
-
-  bh += '<div class="form-field"><label>Natura</label><select class="inp" id="no-natura"><option value="nuovo">Nuovo</option><option value="rinnovo">Rinnovo</option><option value="subentro_diretto">Subentro Diretto</option><option value="subentro_intermediario">Subentro Intermediario</option></select></div>';
-  bh += '<div class="form-field"><label>Stato</label><select class="inp" id="no-stato"><option value="richiamato">Richiamato</option><option value="in_attesa_assemblea">In Attesa Assemblea</option><option value="preso_lavoro">Preso Lavoro</option><option value="perso">Perso</option><option value="rimandato">Rimandato</option></select></div>';
-
-  bh += '<div class="form-field"><label>Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="no-valore" /></div>';
-  bh += '<div class="form-field"><label>Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="no-annuo" /></div>';
-
-  bh += '<div class="form-field"><label>Template</label><select class="inp" id="no-template"><option value="">-- Nessuno --</option><option value="E40">E-ITN40</option><option value="Q55">Q5.5</option></select></div>';
-  bh += '<div class="form-field"><label>Email Cliente</label><input class="inp" id="no-email" type="email" /></div>';
-
-  bh += '<div class="form-field" style="grid-column:1/-1"><label>Note</label><textarea class="inp" id="no-note" rows="2"></textarea></div>';
-
-  bh += '<div class="form-field"><label><input type="checkbox" id="no-gara" /> Gara Appalto</label></div>';
-  bh += '<div class="form-field"><label>ID Gara</label><input class="inp" id="no-gara-id" /></div>';
-  bh += '<div class="form-field"><label>Valore Gara &euro;</label><input class="inp" type="number" step="0.01" id="no-gara-val" /></div>';
-
+  /* ── SEZIONE 2: Riferimento ── */
+  bh += '<div style="border-left:3px solid #639922;padding-left:14px;margin-bottom:16px">';
+  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="building-2" style="width:14px;height:14px;vertical-align:-2px"></i> Riferimento</div>';
+  bh += '<label style="font-size:.78rem;display:flex;align-items:center;gap:6px;margin-bottom:8px"><input type="checkbox" id="no-crea-oggetto" checked /> Crea come oggetto/stabile (con foglio costi)</label>';
+  bh += '<div style="display:grid;grid-template-columns:1fr auto;gap:8px">';
+  bh += '<input class="inp" id="no-rif-nome" placeholder="Nome (es. Cond. Aurora, Comune di Monza...)" />';
+  bh += '<select class="inp" id="no-rif-tipo" style="width:140px"><option value="condominio">Condominio</option><option value="ente_pubblico">Ente Pubblico</option><option value="commerciale">Commerciale</option><option value="altro">Altro</option></select>';
   bh += "</div>";
+  bh += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:6px">';
+  bh += '<input class="inp" id="no-rif-via" placeholder="Via *" />';
+  bh += '<input class="inp" id="no-rif-civico" placeholder="Civico" />';
+  bh += '<input class="inp" id="no-rif-comune" placeholder="Comune *" />';
+  bh += "</div>";
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
+  bh += '<input class="inp" type="number" id="no-n-unita" placeholder="N. unita abitative" />';
+  bh += '<input class="inp" id="no-rif-prov" placeholder="Provincia" />';
+  bh += "</div></div>";
+
+  /* ── SEZIONE 3: Tipologia ── */
+  bh += '<div style="border-left:3px solid #EF9F27;padding-left:14px;margin-bottom:16px">';
+  bh += '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="layers" style="width:14px;height:14px;vertical-align:-2px"></i> Tipologia Offerta</div>';
+  bh += '<div style="display:flex;flex-wrap:wrap;gap:6px" id="no-tipo-pills">';
+  sottotipiCK.forEach(function(st) {
+    bh += '<button class="pill-btn" data-no-tipo="' + st.val + '" style="font-size:.75rem">' + st.label + "</button>";
+  });
+  bh += "</div>";
+  bh += '<div id="no-tipo-altro" style="display:none;margin-top:8px"><input class="inp" id="no-tipo-custom" placeholder="Tipo personalizzato..." /></div>';
+  bh += "</div>";
+
+  /* ── SEZIONE 4: Dettagli (dinamica per CK/CL) ── */
+  bh += '<div id="no-dettagli" style="border-left:3px solid #854F0B;padding-left:14px;margin-bottom:16px;display:none"></div>';
+
+  /* ── SEZIONE 5: Agente + Natura + Stato ── */
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">';
+  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Agente *</label><select class="inp" id="no-agente">' + agOpts + "</select></div>";
+  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Natura</label><select class="inp" id="no-natura"><option value="nuovo">Nuovo</option><option value="rinnovo">Rinnovo</option><option value="subentro_diretto">Subentro Diretto</option><option value="subentro_intermediario">Subentro Intermediario</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="no-stato"><option value="richiamato">Richiamato</option><option value="in_attesa_assemblea">In Attesa Assemblea</option><option value="preso_lavoro">Preso Lavoro</option><option value="perso">Perso</option><option value="rimandato">Rimandato</option></select></div>';
+  bh += "</div>";
+
+  /* ── SEZIONE 6: Valore + Canone + Note ── */
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="no-valore" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="no-annuo" /></div>';
+  bh += "</div>";
+  bh += '<div class="form-field" style="margin-bottom:12px"><label style="font-size:.72rem;font-weight:700;color:var(--mid)">Note</label><textarea class="inp" id="no-note" rows="2"></textarea></div>';
+
+  /* ── Gara ── */
+  bh += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">';
+  bh += '<label style="font-size:.78rem;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="no-gara" /> Gara appalto</label>';
+  bh += '<input class="inp" id="no-gara-id" placeholder="ID Gara" style="width:140px;font-size:.78rem;display:none" />';
+  bh += '<input class="inp" type="number" step="0.01" id="no-gara-val" placeholder="Valore gara" style="width:120px;font-size:.78rem;display:none" />';
+  bh += "</div>";
+
+  /* ── Riepilogo live ── */
+  bh += '<div id="no-riepilogo" style="background:var(--bg);border-radius:8px;padding:12px;font-size:.82rem;display:none"></div>';
+
   body.innerHTML = bh;
 
   var footer = document.createElement("div");
@@ -993,48 +1045,10 @@ function showNuovaOffertaModal(cont) {
   btnCancel.className = "btn btn-sec";
   btnCancel.textContent = "Annulla";
   btnCancel.addEventListener("click", closeModal);
-
   var btnSave = document.createElement("button");
   btnSave.className = "btn btn-primary";
   btnSave.textContent = "Crea Offerta";
-  btnSave.addEventListener("click", function() {
-    var studio = document.getElementById("no-studio").value.trim();
-    var condVia = document.getElementById("no-cond-via").value.trim();
-    var condComune = document.getElementById("no-cond-comune").value.trim();
-    var agenteId = document.getElementById("no-agente").value;
-
-    if (!studio) { alert("Studio / Cliente obbligatorio"); return; }
-
-    var payload = {
-      nome_studio: studio,
-      nome_condominio: document.getElementById("no-cond-nome").value,
-      via: condVia,
-      citta: condComune,
-      cap: document.getElementById("no-cond-prov").value,
-      agente_id: agenteId ? parseInt(agenteId) : null,
-      macro_categoria: document.getElementById("no-macro").value || null,
-      sottotipo: document.getElementById("no-sottotipo").value || null,
-      natura: document.getElementById("no-natura").value,
-      stato: document.getElementById("no-stato").value,
-      valore_commessa: parseFloat(document.getElementById("no-valore").value) || null,
-      importo: parseFloat(document.getElementById("no-valore").value) || null,
-      importo_servizio_annuo: parseFloat(document.getElementById("no-annuo").value) || null,
-      template: document.getElementById("no-template").value || null,
-      email_studio: document.getElementById("no-email").value || null,
-      note: document.getElementById("no-note").value || null,
-      is_gara_appalto: document.getElementById("no-gara").checked ? 1 : 0,
-      gara_id: document.getElementById("no-gara-id").value || null,
-      valore_gara: parseFloat(document.getElementById("no-gara-val").value) || null,
-      stato_versione: "attiva",
-      versione: "A"
-    };
-
-    api("POST", "/api/offerte", payload).then(function() {
-      closeModal();
-      toast("Offerta creata", "ok");
-      renderDashboard(cont);
-    });
-  });
+  btnSave.id = "no-save-btn";
 
   footer.appendChild(btnCancel);
   footer.appendChild(btnSave);
@@ -1044,6 +1058,221 @@ function showNuovaOffertaModal(cont) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   icons();
+
+  /* ── Events ── */
+  var selectedTipo = "";
+  var selectedMacro = "";
+
+  /* Client autocomplete */
+  var studioInp = document.getElementById("no-studio");
+  var acDrop = document.getElementById("no-ac-drop");
+  var acTimer = null;
+  studioInp.addEventListener("input", function() {
+    clearTimeout(acTimer);
+    var q = this.value;
+    if (q.length < 2) { acDrop.style.display = "none"; return; }
+    acTimer = setTimeout(function() {
+      api("GET", "/api/clienti/search?q=" + encodeURIComponent(q)).then(function(res) {
+        var data = res.data || res || [];
+        if (!data.length) { acDrop.style.display = "none"; return; }
+        _noAcClienti = data;
+        var html = "";
+        data.forEach(function(c, i) {
+          html += '<div class="ac-item" data-no-ac="' + i + '">' + esc(c.nome_studio) + (c.citta ? " \u2014 " + esc(c.citta) : "") + "</div>";
+        });
+        acDrop.innerHTML = html;
+        acDrop.style.display = "block";
+        acDrop.querySelectorAll(".ac-item").forEach(function(el) {
+          el.addEventListener("click", function() {
+            var c = _noAcClienti[parseInt(this.getAttribute("data-no-ac"))];
+            if (!c) return;
+            studioInp.value = c.nome_studio || "";
+            var cliVia = document.getElementById("no-cli-via");
+            var cliCitta = document.getElementById("no-cli-citta");
+            var cliEmail = document.getElementById("no-cli-email");
+            var cliTel = document.getElementById("no-cli-tel");
+            if (cliVia) cliVia.value = c.via || "";
+            if (cliCitta) cliCitta.value = c.citta || "";
+            if (cliEmail) cliEmail.value = c.email || "";
+            if (cliTel) cliTel.value = c.telefono || "";
+            acDrop.style.display = "none";
+          });
+        });
+      });
+    }, 300);
+  });
+  studioInp.addEventListener("blur", function() { setTimeout(function() { acDrop.style.display = "none"; }, 200); });
+
+  /* Tipologia pills */
+  document.querySelectorAll("[data-no-tipo]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll("[data-no-tipo]").forEach(function(b) { b.classList.remove("on"); });
+      this.classList.add("on");
+      var val = this.getAttribute("data-no-tipo");
+      var st = sottotipiCK.find(function(s) { return s.val === val; });
+      selectedTipo = val;
+      selectedMacro = st ? st.macro : "";
+
+      var altroDiv = document.getElementById("no-tipo-altro");
+      if (val === "_altro") { altroDiv.style.display = "block"; }
+      else { altroDiv.style.display = "none"; }
+
+      /* Show dettagli section for CK */
+      var detDiv = document.getElementById("no-dettagli");
+      if (val === "CK") {
+        detDiv.style.display = "block";
+        detDiv.innerHTML = '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="thermometer" style="width:14px;height:14px;vertical-align:-2px;color:#009FE3"></i> Dettagli CK</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" /></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Prezzo Rip. &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-prip" /></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Modello</label><select class="inp" id="no-ck-mod"><option>E-ITN40</option><option>Q5.5</option></select></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Canone Lettura &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-lett" /></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Ulteria Care &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-care" /></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Centralizzazione</label><select class="inp" id="no-ck-centr"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Contatori Acqua</label><input class="inp" type="number" id="no-ck-nacq" placeholder="0 se assenti" /></div>' +
+          '</div>' +
+          '<div id="no-ck-riepilogo" style="background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:8px;font-size:.78rem"></div>';
+        icons();
+        /* Live calc */
+        function calcCK() {
+          var nRip = parseInt(document.getElementById("no-ck-nrip").value) || 0;
+          var pRip = parseFloat(document.getElementById("no-ck-prip").value) || 0;
+          var lett = parseFloat(document.getElementById("no-ck-lett").value) || 0;
+          var care = parseFloat(document.getElementById("no-ck-care").value) || 0;
+          var nAcq = parseInt(document.getElementById("no-ck-nacq").value) || 0;
+          var totForn = nRip * pRip;
+          var totAnnuo = (nRip + nAcq) * lett + nRip * care;
+          document.getElementById("no-ck-riepilogo").innerHTML =
+            "<strong>Riepilogo CK:</strong> " + nRip + " rip. x " + fmtEurDash(pRip) + " = " + fmtEurDash(totForn) +
+            (nAcq > 0 ? " | " + nAcq + " cont. acqua" : "") +
+            "<br>Canone annuo: " + fmtEurDash(totAnnuo) + "/anno" +
+            " (lettura " + fmtEurDash(lett) + " + care " + fmtEurDash(care) + ")";
+          document.getElementById("no-valore").value = totForn || "";
+          document.getElementById("no-annuo").value = totAnnuo || "";
+        }
+        ["no-ck-nrip", "no-ck-prip", "no-ck-lett", "no-ck-care", "no-ck-nacq"].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener("input", calcCK);
+        });
+      } else if (val === "CL") {
+        detDiv.style.display = "block";
+        detDiv.innerHTML = '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="wrench" style="width:14px;height:14px;vertical-align:-2px;color:#EF9F27"></i> Dettagli CL</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Contatori Calore</label><input class="inp" type="number" id="no-cl-ncc" /></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Contatori Acqua</label><input class="inp" type="number" id="no-cl-nca" /></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Canone Lettura &euro;/utenza/anno</label><input class="inp" type="number" step="0.01" id="no-cl-lett" /></div>' +
+          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Centralizzazione</label><select class="inp" id="no-cl-centr"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
+          '</div>';
+        icons();
+      } else {
+        detDiv.style.display = "none";
+      }
+      updateNoRiepilogo();
+    });
+  });
+
+  /* Gara toggle */
+  document.getElementById("no-gara").addEventListener("change", function() {
+    document.getElementById("no-gara-id").style.display = this.checked ? "block" : "none";
+    document.getElementById("no-gara-val").style.display = this.checked ? "block" : "none";
+  });
+
+  /* Live riepilogo */
+  function updateNoRiepilogo() {
+    var rDiv = document.getElementById("no-riepilogo");
+    var studio = studioInp.value;
+    var rif = document.getElementById("no-rif-nome").value || document.getElementById("no-rif-via").value;
+    if (!studio && !rif) { rDiv.style.display = "none"; return; }
+    rDiv.style.display = "block";
+    var html = "<strong>Riepilogo:</strong> " + esc(studio);
+    if (rif) html += " \u2014 " + esc(rif);
+    if (selectedTipo && selectedTipo !== "_altro") html += " | <span class='badge' style='font-size:.6rem'>" + selectedTipo + "</span>";
+    rDiv.innerHTML = html;
+  }
+  studioInp.addEventListener("input", updateNoRiepilogo);
+  document.getElementById("no-rif-nome").addEventListener("input", updateNoRiepilogo);
+
+  /* Save */
+  btnSave.addEventListener("click", function() {
+    var studio = studioInp.value.trim();
+    if (!studio) { alert("Studio / Cliente obbligatorio"); return; }
+
+    var tipo = selectedTipo === "_altro" ? (document.getElementById("no-tipo-custom").value || "altro") : selectedTipo;
+    var macro = selectedMacro;
+    if (tipo === "_altro" || !macro) macro = "";
+
+    var payload = {
+      nome_studio: studio,
+      nome_condominio: document.getElementById("no-rif-nome").value,
+      via: document.getElementById("no-rif-via").value,
+      citta: document.getElementById("no-rif-comune").value,
+      cap: document.getElementById("no-rif-prov").value,
+      agente_id: document.getElementById("no-agente").value ? parseInt(document.getElementById("no-agente").value) : null,
+      macro_categoria: macro || null,
+      sottotipo: tipo || null,
+      natura: document.getElementById("no-natura").value,
+      stato: document.getElementById("no-stato").value,
+      valore_commessa: parseFloat(document.getElementById("no-valore").value) || null,
+      importo: parseFloat(document.getElementById("no-valore").value) || null,
+      importo_servizio_annuo: parseFloat(document.getElementById("no-annuo").value) || null,
+      email_studio: document.getElementById("no-cli-email").value || null,
+      note: document.getElementById("no-note").value || null,
+      is_gara_appalto: document.getElementById("no-gara").checked ? 1 : 0,
+      gara_id: document.getElementById("no-gara-id").value || null,
+      valore_gara: parseFloat(document.getElementById("no-gara-val").value) || null,
+      stato_versione: "attiva",
+      versione: "A"
+    };
+
+    /* Save client if needed */
+    if (document.getElementById("no-save-cli").checked) {
+      api("POST", "/api/clienti", {
+        nome_studio: studio,
+        via: document.getElementById("no-cli-via").value,
+        citta: document.getElementById("no-cli-citta").value,
+        email: document.getElementById("no-cli-email").value,
+        telefono: document.getElementById("no-cli-tel").value
+      });
+    }
+
+    /* Create oggetto if toggle checked */
+    var creaOggetto = document.getElementById("no-crea-oggetto").checked;
+    var rifVia = document.getElementById("no-rif-via").value;
+    var rifComune = document.getElementById("no-rif-comune").value;
+
+    if (creaOggetto && rifVia && rifComune) {
+      api("POST", "/api/oggetti", {
+        cliente_id: null,
+        nome: document.getElementById("no-rif-nome").value,
+        via: rifVia,
+        civico: document.getElementById("no-rif-civico").value,
+        comune: rifComune,
+        provincia: document.getElementById("no-rif-prov").value,
+        tipo_oggetto: document.getElementById("no-rif-tipo").value,
+        n_unita: parseInt(document.getElementById("no-n-unita").value) || null,
+        agente_id: payload.agente_id
+      }).then(function(res) {
+        if (res.ok && res.data) payload.oggetto_id = res.data.id;
+        return api("POST", "/api/offerte", payload);
+      }).then(function() {
+        closeModal();
+        toast("Offerta creata con oggetto", "ok");
+        renderDashboard(cont);
+      });
+    } else {
+      api("POST", "/api/offerte", payload).then(function() {
+        closeModal();
+        toast("Offerta creata", "ok");
+        renderDashboard(cont);
+      });
+    }
+  });
 }
 
 
