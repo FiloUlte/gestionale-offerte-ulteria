@@ -125,8 +125,8 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","azioni"];
-var COL_LABELS = {checkbox:"",numero:"N. Offerta",nome_studio:"Studio / Cliente",riferimento:"Riferimento",tipologia:"Tipologia",valore:"Valore",agente_id:"Agente",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+var ALL_COLS = ["checkbox","numero","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","elimina"];
+var COL_LABELS = {checkbox:"",numero:"N. Offerta",nome_studio:"Studio / Cliente",riferimento:"Riferimento",tipologia:"Tipologia",valore:"Valore",agente_id:"Agente",stato:"Stato",giorni:"Giorni",elimina:""};
 
 function loadDashFilters() {
   try {
@@ -269,20 +269,7 @@ function buildDashboard(c) {
   });
   h += "</div>";
 
-  /* Servizi filter buttons */
-  h += '<div class="fac gap4 mb8">';
-  var servTabs = [
-    { val: "RK", label: "RK", bg: "#E6F5FC", color: "#0080B8" },
-    { val: "RD", label: "RD", bg: "#EAF3DE", color: "#639922" },
-    { val: "MANSIS", label: "MANSIS", bg: "#FAEEDA", color: "#854F0B" },
-    { val: "MANCT", label: "MANCT", bg: "#EEEDFE", color: "#534AB7" }
-  ];
-  servTabs.forEach(function(t) {
-    var active = dashFilters.tipo_servizio === t.val;
-    var style = active ? "background:" + t.color + ";color:#fff" : "background:" + t.bg + ";color:" + t.color;
-    h += '<button class="btn btn-sm" data-serv-filter="' + t.val + '" style="' + style + ';font-weight:700;font-size:.65rem;border-radius:20px;padding:3px 10px;border:none">' + t.label + "</button>";
-  });
-  h += "</div>";
+  /* Servizi filter buttons removed — filtering happens via KPI cards and Excel-like column headers */
 
   /* Filter bar */
   h += '<div class="fac gap8 mb12 flex-wrap" style="flex-wrap:wrap">';
@@ -323,9 +310,9 @@ function buildDashboard(c) {
     { key: "nome_studio", w: "180px" }, { key: "riferimento", w: "200px" },
     { key: "tipologia", w: "100px" },
     { key: "valore", w: "110px", cls: "r" },
-    { key: "agente_id", w: "130px" },
+    { key: "agente_id", w: "60px" },
     { key: "stato", w: "140px" },
-    { key: "giorni", w: "60px" }, { key: "azioni", w: "100px" }
+    { key: "giorni", w: "60px" }, { key: "elimina", w: "40px" }
   ];
   colDefs.forEach(function(cd) {
     if (dashVisibleCols.indexOf(cd.key) < 0) return;
@@ -405,28 +392,29 @@ function buildDashboard(c) {
       if (o.is_gara_appalto) h += '<div style="font-size:.6rem;color:var(--muted)">(gara)</div>';
       h += "</td>";
     }
-    /* Agente */
+    /* Agente — solo iniziali */
     if (dashVisibleCols.indexOf("agente_id") >= 0) {
-      if (o.agente_id) {
-        h += '<td class="editable" data-field="agente_id">' + agenteHtml(o.agente_id) + "</td>";
-      } else if (o.agente_nome) {
-        var agIni = ((o.agente_nome || " ")[0] + (o.agente_cognome || " ")[0]).toUpperCase();
-        var agCol = o.agente_colore || "#009FE3";
-        h += '<td class="editable" data-field="agente_id"><span class="agente-pill"><span class="agente-dot" style="background:' + agCol + '">' + agIni + "</span>" + esc(o.agente_nome) + "</span></td>";
+      var agName = o.agente_nome || "";
+      var agSur = o.agente_cognome || "";
+      var agCol2 = o.agente_colore || "#009FE3";
+      if (o.agente_id || agName) {
+        var agI = (agName[0] || "").toUpperCase() + (agSur[0] || "").toUpperCase();
+        if (!agI && o.agente_id) {
+          var agObj = getAgente(o.agente_id);
+          if (agObj) { agI = ((agObj.nome || " ")[0] + (agObj.cognome || " ")[0]).toUpperCase(); agCol2 = agObj.colore || "#009FE3"; }
+        }
+        h += '<td class="editable" data-field="agente_id" title="' + esc(agName + " " + agSur) + '"><span class="agente-dot" style="background:' + agCol2 + ';width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:.65rem;font-weight:800;color:#fff">' + agI + "</span></td>";
       } else {
-        h += '<td class="editable" data-field="agente_id" style="color:var(--muted);font-size:.72rem">Non assegnato</td>';
+        h += '<td class="editable" data-field="agente_id" style="text-align:center"><span style="color:var(--muted);font-size:.7rem;cursor:pointer" title="Clicca per assegnare agente">+</span></td>';
       }
     }
     /* Stato */
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
     /* Giorni */
     if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
-    if (dashVisibleCols.indexOf("azioni") >= 0) {
-      h += '<td><div class="act-btns">';
-      h += '<button class="act-btn act-docx" data-dup-id="' + o.id + '" title="Duplica"><i data-lucide="copy" style="width:12px;height:12px"></i></button>';
-      h += '<button class="act-btn act-mail" data-mail-id="' + o.id + '" title="Email"><i data-lucide="mail" style="width:12px;height:12px"></i></button>';
-      h += '<button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>';
-      h += "</div></td>";
+    /* Elimina (solo cestino) */
+    if (dashVisibleCols.indexOf("elimina") >= 0) {
+      h += '<td><button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina" style="padding:4px"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button></td>';
     }
     h += "</tr>";
 
@@ -576,16 +564,7 @@ function attachDashEvents(c) {
     });
   });
 
-  /* Servizi filter buttons */
-  c.querySelectorAll("[data-serv-filter]").forEach(function(btn) {
-    btn.addEventListener("click", function() {
-      var val = this.getAttribute("data-serv-filter");
-      dashFilters.tipo_servizio = dashFilters.tipo_servizio === val ? "" : val;
-      dashPage = 0;
-      saveDashFilters();
-      buildDashboard(c);
-    });
-  });
+  /* Servizi filter buttons removed */
 
   /* Filters */
   var fAgente = document.getElementById("f-agente");
