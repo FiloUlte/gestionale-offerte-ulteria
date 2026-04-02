@@ -125,8 +125,8 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","importo","stato","giorni","azioni"];
-var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",importo:"Importo",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+var ALL_COLS = ["checkbox","numero","versione","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","importo","importo_annuo","stato","giorni","azioni"];
+var COL_LABELS = {checkbox:"",numero:"N.",versione:"Ver.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",importo:"Importo",importo_annuo:"Canone/anno",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
 
 function loadDashFilters() {
   try {
@@ -157,15 +157,19 @@ function renderDashboard(c) {
 }
 
 function calcKpi(list) {
-  var tot = list.length, aperte = 0, prese = 0, valPreso = 0, valPipeline = 0;
+  var tot = 0, aperte = 0, prese = 0, valFornitura = 0, valServizi = 0;
   list.forEach(function(o) {
-    var imp = (o.prezzo_fornitura || 0) + (o.prezzo_care || 0) + (o.canone_lettura || 0);
-    if (o.stato === "preso_lavoro") { prese++; valPreso += imp; }
-    if (o.stato === "richiamato" || o.stato === "in_attesa_assemblea") { aperte++; valPipeline += imp; }
-    if (o.stato === "rimandato") aperte++;
+    if (o.stato_versione && o.stato_versione !== "attiva") return;
+    tot++;
+    if (o.stato === "preso_lavoro") {
+      prese++;
+      if (!o.is_accordo_quadro) valFornitura += (o.importo || 0);
+      valServizi += (o.importo_servizio_annuo || 0);
+    }
+    if (o.stato === "richiamato" || o.stato === "in_attesa_assemblea" || o.stato === "rimandato") aperte++;
   });
   var tasso = tot > 0 ? (prese / tot * 100).toFixed(1) : "\u2014";
-  return { tot: tot, aperte: aperte, prese: prese, valPreso: valPreso, valPipeline: valPipeline, tasso: tasso };
+  return { tot: tot, aperte: aperte, prese: prese, valFornitura: valFornitura, valServizi: valServizi, tasso: tasso };
 }
 
 function fmtEurDash(val) {
@@ -234,12 +238,12 @@ function buildDashboard(c) {
   /* KPI */
   h += '<div class="g3 mb12">';
   h += '<div class="kpi"><div class="kpi-l">Totale Offerte</div><div class="kpi-v kv-blue">' + kpi.tot + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v" style="color:#EF9F27">' + kpi.aperte + "</div></div>";
   h += '<div class="kpi"><div class="kpi-l">Lavori Presi</div><div class="kpi-v" style="color:#639922">' + kpi.prese + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v" style="color:#EF9F27">' + kpi.aperte + "</div></div>";
   h += "</div>";
   h += '<div class="g3 mb20">';
-  h += '<div class="kpi"><div class="kpi-l">Valore Preso</div><div class="kpi-v" style="color:#639922">' + fmtEurDash(kpi.valPreso) + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Valore Pipeline</div><div class="kpi-v" style="color:#EF9F27">' + fmtEurDash(kpi.valPipeline) + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Valore Preso Fornitura</div><div class="kpi-v" style="color:#639922">' + fmtEurDash(kpi.valFornitura) + "</div></div>";
+  h += '<div class="kpi"><div class="kpi-l">Valore Servizi Annui</div><div class="kpi-v" style="color:#854F0B">' + fmtEurDash(kpi.valServizi) + "/anno</div></div>";
   h += '<div class="kpi"><div class="kpi-l">Tasso Conversione</div><div class="kpi-v kv-blue">' + kpi.tasso + (kpi.tasso !== "\u2014" ? "%" : "") + "</div></div>";
   h += "</div>";
 
@@ -292,14 +296,16 @@ function buildDashboard(c) {
   h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
   h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
 
-  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, tipo_offerta: 1, natura: 1, importo: 1, stato: 1, giorni: 1 };
+  var sortable = { numero: 1, versione: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, tipo_offerta: 1, natura: 1, importo: 1, importo_annuo: 1, stato: 1, giorni: 1 };
   var colDefs = [
-    { key: "numero", w: "90px" }, { key: "data_creazione", w: "100px" },
-    { key: "nome_studio", w: "170px" }, { key: "nome_condominio", w: "140px" },
-    { key: "template", w: "80px" }, { key: "tipo_offerta", w: "90px" },
-    { key: "natura", w: "70px" }, { key: "agente_id", w: "110px" },
-    { key: "importo", w: "90px", cls: "r" }, { key: "stato", w: "120px" },
-    { key: "giorni", w: "70px" }, { key: "azioni", w: "110px" }
+    { key: "numero", w: "70px" }, { key: "versione", w: "40px" },
+    { key: "data_creazione", w: "85px" },
+    { key: "nome_studio", w: "150px" }, { key: "nome_condominio", w: "130px" },
+    { key: "template", w: "70px" }, { key: "tipo_offerta", w: "80px" },
+    { key: "natura", w: "55px" }, { key: "agente_id", w: "100px" },
+    { key: "importo", w: "85px", cls: "r" }, { key: "importo_annuo", w: "85px", cls: "r" },
+    { key: "stato", w: "110px" },
+    { key: "giorni", w: "60px" }, { key: "azioni", w: "100px" }
   ];
   colDefs.forEach(function(cd) {
     if (dashVisibleCols.indexOf(cd.key) < 0) return;
@@ -337,6 +343,7 @@ function buildDashboard(c) {
     h += '<td><input type="checkbox" class="row-sel" data-sel-id="' + o.id + '"' + (isSel ? " checked" : "") + " /></td>";
 
     if (dashVisibleCols.indexOf("numero") >= 0) h += '<td class="mono">' + (o.numero || "\u2014") + "</td>";
+    if (dashVisibleCols.indexOf("versione") >= 0) h += "<td>" + esc(o.versione || "A") + "</td>";
     if (dashVisibleCols.indexOf("data_creazione") >= 0) h += "<td>" + fmtData(o.data_creazione) + "</td>";
     if (dashVisibleCols.indexOf("nome_studio") >= 0) h += '<td class="editable" data-field="nome_studio">' + esc(o.nome_studio || "") + "</td>";
     if (dashVisibleCols.indexOf("nome_condominio") >= 0) h += '<td class="editable" data-field="nome_condominio">' + esc(o.nome_condominio || "") + "</td>";
@@ -352,6 +359,7 @@ function buildDashboard(c) {
     }
     if (dashVisibleCols.indexOf("agente_id") >= 0) h += '<td class="editable" data-field="agente_id">' + (o.agente_id ? agenteHtml(o.agente_id) : '<span style="color:var(--muted);font-size:.72rem">Non assegnato</span>') + "</td>";
     if (dashVisibleCols.indexOf("importo") >= 0) h += '<td class="num editable" data-field="importo">' + (imp ? fmtEurDash(imp) : '<span style="color:var(--muted)">\u2014</span>') + "</td>";
+    if (dashVisibleCols.indexOf("importo_annuo") >= 0) h += '<td class="num">' + (o.importo_servizio_annuo ? fmtEurDash(o.importo_servizio_annuo) : "\u2014") + "</td>";
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
     if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
     if (dashVisibleCols.indexOf("azioni") >= 0) {
@@ -368,20 +376,38 @@ function buildDashboard(c) {
       var hasDocx = !!o.path_docx, hasPdf = !!o.path_pdf;
       h += '<tr class="row-expanded"><td colspan="' + (colDefs.length + 1) + '">';
       h += '<div class="expand-panel">';
-      h += '<div class="g3 mb12">';
-      h += "<div><strong>Indirizzo:</strong> " + esc((o.via || "") + (o.citta ? ", " + (o.cap || "") + " " + o.citta : "")) + "</div>";
-      h += "<div><strong>Note:</strong> " + esc(o.note || "Nessuna nota") + "</div>";
-      h += "<div><strong>Email:</strong> " + esc(o.email_studio || "\u2014") + "</div>";
+      h += '<div style="display:flex;gap:20px;margin-bottom:12px">';
+      /* Left column */
+      h += '<div style="flex:1">';
+      h += "<div style='margin-bottom:4px'><strong>" + esc(o.nome_studio || "") + "</strong></div>";
+      if (o.via || o.citta) {
+        h += "<div style='font-size:.82rem;color:var(--mid);margin-bottom:4px'>" + esc((o.via || "") + (o.citta ? ", " + o.citta : ""));
+        if (o.oggetto_id) h += ' <a href="/oggetti/' + o.oggetto_id + '" style="color:var(--blue);font-size:.72rem">[Apri oggetto]</a>';
+        h += "</div>";
+      }
+      if (o.agente_id) { var ag = getAgente(o.agente_id); if (ag) h += '<div style="font-size:.82rem;margin-bottom:4px">' + agenteHtml(o.agente_id) + ' <a href="/agenti/' + o.agente_id + '" style="color:var(--blue);font-size:.72rem">[Dashboard]</a></div>'; }
+      h += "<div style='font-size:.78rem;color:var(--muted)'>Creata: " + fmtData(o.data_creazione) + " | Template: " + esc(o.template || "") + " | Versione: " + esc(o.versione || "A") + "</div>";
       h += "</div>";
+      /* Right column */
+      h += '<div style="text-align:right">';
+      h += '<div><span class="stato-badge ' + si.cls + '" style="font-size:.78rem">' + si.label + "</span></div>";
+      if (gg !== null) h += "<div style='margin-top:4px'>" + ggHtml + "</div>";
+      var natMap2 = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Dir.", subentro_intermediario: "Subentro Int." };
+      if (o.natura) h += '<div style="margin-top:4px"><span class="badge b-gray" style="font-size:.6rem">' + (natMap2[o.natura] || "") + "</span></div>";
+      h += "</div></div>";
+      /* Links */
       h += '<div class="fac gap8 mb12">';
       if (o.nome_studio) h += '<a href="/clienti/0" class="btn btn-sm btn-ghost" data-client-link="' + esc(o.nome_studio) + '"><i data-lucide="user" style="width:12px;height:12px"></i> Scheda cliente</a>';
-      if (o.agente_id) h += '<a href="/agenti/' + o.agente_id + '" class="btn btn-sm btn-ghost"><i data-lucide="briefcase" style="width:12px;height:12px"></i> Dashboard agente</a>';
+      if (o.oggetto_id) h += '<a href="/oggetti/' + o.oggetto_id + '" class="btn btn-sm btn-ghost"><i data-lucide="building-2" style="width:12px;height:12px"></i> Pagina oggetto</a>';
       h += "</div>";
-      h += '<div class="fac gap6">';
+      /* Actions */
+      h += '<div class="fac gap6" style="flex-wrap:wrap">';
       h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
       if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
       if (hasPdf) h += '<button class="btn btn-sm btn-pdf" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
+      h += '<button class="btn btn-sm btn-sec" data-ver-id="' + o.id + '"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Aggiorna offerta</button>';
       h += '<button class="btn btn-sm btn-sec" data-dup-id="' + o.id + '"><i data-lucide="copy" style="width:12px;height:12px"></i> Duplica</button>';
+      if (o.oggetto_id) h += '<button class="btn btn-sm btn-sec" data-fc-oggetto="' + o.oggetto_id + '"><i data-lucide="euro" style="width:12px;height:12px"></i> Foglio Costi</button>';
       h += '<button class="btn btn-sm btn-sec" data-mail-id="' + o.id + '"><i data-lucide="mail" style="width:12px;height:12px"></i> Email</button>';
       h += '<button class="btn btn-sm btn-danger" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '"><i data-lucide="trash-2" style="width:12px;height:12px"></i> Elimina</button>';
       h += "</div></div></td></tr>";
@@ -556,6 +582,28 @@ function attachDashEvents(c) {
         toast("Offerta duplicata: N. " + (res.numero || ""), "ok");
         renderDashboard(c);
       });
+    });
+  });
+
+  /* Aggiorna offerta (versione) */
+  c.querySelectorAll("[data-ver-id]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var id = parseInt(btn.getAttribute("data-ver-id"));
+      if (confirm("Creare nuova versione di questa offerta?")) {
+        api("POST", "/api/offerte/" + id + "/versione").then(function(res) {
+          if (res.ok) { toast("Versione " + (res.data ? res.data.versione : "") + " creata", "ok"); renderDashboard(c); }
+          else toast(res.error || "Errore", "error");
+        });
+      }
+    });
+  });
+
+  /* Foglio Costi link */
+  c.querySelectorAll("[data-fc-oggetto]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      window.location.href = "/oggetti/" + btn.getAttribute("data-fc-oggetto");
     });
   });
 

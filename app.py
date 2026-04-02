@@ -2191,6 +2191,144 @@ def api_generatore_crea():
     })
 
 
+# ── Prompt 3: Fogli Costi API ────────────────────────────────────────
+
+@app.route("/api/fogli-costi/by-oggetto/<int:oid>", methods=["GET"])
+def api_fogli_costi_by_oggetto(oid):
+    conn = get_db()
+    fc = conn.execute("SELECT * FROM fogli_costi WHERE oggetto_id=? ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
+    extras = []
+    if fc:
+        extras = conn.execute("SELECT * FROM foglio_costi_extra WHERE foglio_costi_id=? ORDER BY id", (fc["id"],)).fetchall()
+    # Get offerta righe for this oggetto
+    righe = conn.execute(
+        "SELECT or2.*, o.numero as offerta_numero FROM offerte_righe or2 "
+        "JOIN offerte o ON or2.offerta_id = o.id "
+        "WHERE o.oggetto_id=? AND o.stato_versione='attiva' ORDER BY or2.ordine", (oid,)
+    ).fetchall()
+    # Get prodotti for price lookup
+    prodotti = conn.execute("SELECT codice,nome,modello,prezzo_acquisto FROM prodotti WHERE attivo=1").fetchall()
+    # Get prezzi installazione
+    prezzi_inst = conn.execute("SELECT * FROM prezzi_installazione").fetchall()
+    conn.close()
+    return jsonify({
+        "ok": True,
+        "data": {
+            "foglio": dict(fc) if fc else None,
+            "extras": [dict(e) for e in extras],
+            "righe_offerta": [dict(r) for r in righe],
+            "prodotti": [dict(p) for p in prodotti],
+            "prezzi_installazione": [dict(p) for p in prezzi_inst],
+        }
+    })
+
+
+@app.route("/api/fogli-costi", methods=["POST"])
+def api_fogli_costi_create():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    cur = conn.execute(
+        """INSERT INTO fogli_costi (oggetto_id, offerta_id, costo_apparecchi,
+           costo_installazione_idraulica, costo_installazione_elettrica,
+           costo_concentratori, costo_materiali_extra, note_costi, totale_costi,
+           ricavo_fornitura, ricavo_servizio_annuo, k_moltiplicatore,
+           margine_euro, margine_percentuale,
+           provvigione1_nome, provvigione1_percentuale, provvigione1_euro,
+           provvigione2_nome, provvigione2_percentuale, provvigione2_euro,
+           provvigione3_nome, provvigione3_percentuale, provvigione3_euro,
+           netto_finale, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (data.get("oggetto_id"), data.get("offerta_id"),
+         data.get("costo_apparecchi", 0), data.get("costo_installazione_idraulica", 0),
+         data.get("costo_installazione_elettrica", 0), data.get("costo_concentratori", 0),
+         data.get("costo_materiali_extra", 0), data.get("note_costi", ""),
+         data.get("totale_costi", 0), data.get("ricavo_fornitura", 0),
+         data.get("ricavo_servizio_annuo", 0), data.get("k_moltiplicatore", 1.0),
+         data.get("margine_euro", 0), data.get("margine_percentuale", 0),
+         data.get("provvigione1_nome"), data.get("provvigione1_percentuale", 0), data.get("provvigione1_euro", 0),
+         data.get("provvigione2_nome"), data.get("provvigione2_percentuale", 0), data.get("provvigione2_euro", 0),
+         data.get("provvigione3_nome"), data.get("provvigione3_percentuale", 0), data.get("provvigione3_euro", 0),
+         data.get("netto_finale", 0), now, now),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM fogli_costi WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/fogli-costi/<int:fid>", methods=["PATCH"])
+def api_fogli_costi_update(fid):
+    data = request.json
+    conn = get_db()
+    allowed = [
+        "costo_apparecchi", "costo_installazione_idraulica", "costo_installazione_elettrica",
+        "costo_concentratori", "costo_materiali_extra", "note_costi", "totale_costi",
+        "ricavo_fornitura", "ricavo_servizio_annuo", "k_moltiplicatore",
+        "margine_euro", "margine_percentuale",
+        "provvigione1_nome", "provvigione1_percentuale", "provvigione1_euro",
+        "provvigione2_nome", "provvigione2_percentuale", "provvigione2_euro",
+        "provvigione3_nome", "provvigione3_percentuale", "provvigione3_euro",
+        "netto_finale",
+    ]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(k + "=?")
+            vals.append(data[k])
+    if sets:
+        sets.append("updated_at=?")
+        vals.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        vals.append(fid)
+        conn.execute("UPDATE fogli_costi SET " + ",".join(sets) + " WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM fogli_costi WHERE id=?", (fid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/fogli-costi/<int:fid>/extra", methods=["POST"])
+def api_fogli_costi_add_extra(fid):
+    data = request.json
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO foglio_costi_extra (foglio_costi_id, descrizione, quantita, prezzo_unitario, totale) VALUES (?,?,?,?,?)",
+        (fid, data.get("descrizione", ""), data.get("quantita", 1),
+         data.get("prezzo_unitario", 0), data.get("totale", 0)),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM foglio_costi_extra WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/fogli-costi/extra/<int:eid>", methods=["DELETE"])
+def api_fogli_costi_del_extra(eid):
+    conn = get_db()
+    conn.execute("DELETE FROM foglio_costi_extra WHERE id=?", (eid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/offerte/<int:oid>/righe", methods=["GET"])
+def api_offerte_righe(oid):
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM offerte_righe WHERE offerta_id=? ORDER BY ordine", (oid,)).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/attivita/badge_count", methods=["GET"])
+def api_attivita_badge_count():
+    conn = get_db()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM attivita WHERE stato='aperta' AND date(data_scadenza) <= date('now')"
+    ).fetchone()[0]
+    conn.close()
+    return jsonify({"ok": True, "count": count})
+
+
 # ── Startup ──────────────────────────────────────────────────────────
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
