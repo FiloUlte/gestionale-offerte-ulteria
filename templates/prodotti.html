@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Prodotti e Listino</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=13">
+  <style>
+    body { overflow: auto; }
+    .prod-page { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .prod-header { margin-bottom: 24px; }
+    .prod-sub { font-size: .82rem; color: var(--muted); margin-top: 6px; max-width: 600px; line-height: 1.5; }
+
+    .margine-badge { font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; display: inline-block; }
+    .margine-low { background: #FCEBEB; color: #A32D2D; }
+    .margine-mid { background: #FAEEDA; color: #854F0B; }
+    .margine-good { background: #EAF3DE; color: #639922; }
+    .margine-great { background: #D4EDDA; color: #155724; }
+
+    .cat-badge { font-size: .65rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .cat-ripartitore { background: #E6F5FC; color: #0080B8; }
+    .cat-contatore_acqua { background: #EAF3DE; color: #639922; }
+    .cat-contatore_calore { background: #FAEEDA; color: #854F0B; }
+    .cat-concentratore { background: #EEEDFE; color: #534AB7; }
+    .cat-materiale { background: #F1EFE8; color: #5F5E5A; }
+    .cat-servizio { background: #FCE4EC; color: #880E4F; }
+
+    .price-warn { color: #dc2626; }
+    .price-null { font-size: .72rem; color: var(--muted); background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+
+    .filter-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-tab { padding: 6px 14px; border-radius: 20px; font-size: .75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--white); color: var(--mid); transition: all .14s; font-family: inherit; }
+    .filter-tab:hover { border-color: var(--blue); color: var(--blue); }
+    .filter-tab.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+    .storico-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .storico-item:last-child { border-bottom: none; }
+    .storico-date { font-size: .75rem; font-weight: 700; color: var(--text); }
+    .storico-detail { font-size: .82rem; color: var(--mid); margin-top: 4px; }
+    .storico-arrow { color: var(--blue); font-weight: 700; }
+
+    .kpi-warn { border: 2px solid #f59e0b !important; }
+  </style>
+</head>
+<body style="background: var(--bg)">
+  <div class="prod-page" id="prod-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script src="/static/prodotti.js?v=1"></script>
+</body>
+</html>

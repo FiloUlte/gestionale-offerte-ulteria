@@ -15,16 +15,23 @@ function api(method, url, body) {
 function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 function icons() { try { lucide.createIcons(); } catch (e) { /* */ } }
 
+var modelliApp = [];
+var prezziInst = [];
+
 function loadPage() {
   Promise.all([
     api("GET", "/api/config"),
     api("GET", "/api/etichette"),
     api("GET", "/api/users"),
-    api("GET", "/api/agenti")
+    api("GET", "/api/agenti"),
+    api("GET", "/api/modelli"),
+    api("GET", "/api/prezzi-installazione")
   ]).then(function(results) {
     var config = results[0];
     etichette = results[1].data || [];
     users = results[2].data || [];
+    modelliApp = results[4].data || [];
+    prezziInst = results[5].data || [];
     var agenti = results[3] || [];
     renderPage(config, agenti);
   }).catch(function(e) {
@@ -36,6 +43,8 @@ function renderPage(config, agenti) {
   var tabs = [
     { id: "generale", label: "Generale", icon: "settings" },
     { id: "etichette", label: "Etichette", icon: "tag" },
+    { id: "modelli", label: "Modelli Apparecchio", icon: "thermometer" },
+    { id: "prezzi_inst", label: "Prezzi Installazione", icon: "wrench" },
     { id: "utenti", label: "Utenti", icon: "users" },
     { id: "email", label: "Email", icon: "mail" },
     { id: "prezzi", label: "Prezzi Base", icon: "euro" }
@@ -87,7 +96,52 @@ function renderPage(config, agenti) {
   });
   h += "</div>";
 
-  /* Tab 3: Utenti */
+  /* Tab: Modelli Apparecchio */
+  h += '<div class="sett-panel' + (settTab === "modelli" ? " active" : "") + '" id="pan-modelli">';
+  var modCats = [
+    { cat: "ripartitore", label: "Ripartitori", icon: "thermometer" },
+    { cat: "contatore_acqua", label: "Contatori Acqua", icon: "droplets" },
+    { cat: "contatore_calore", label: "Contatori Calore", icon: "flame" },
+    { cat: "concentratore", label: "Concentratori", icon: "wifi" }
+  ];
+  modCats.forEach(function(mc) {
+    var items = modelliApp.filter(function(m) { return m.categoria === mc.cat; });
+    h += '<div class="card mb12"><div class="fjb mb8"><div class="sec-ttl" style="margin:0"><i data-lucide="' + mc.icon + '" style="width:14px;height:14px;vertical-align:-2px"></i> ' + mc.label + " (" + items.length + ")</div>";
+    h += '<button class="btn btn-sm btn-primary" data-add-mod="' + mc.cat + '"><i data-lucide="plus" style="width:12px;height:12px"></i></button></div>';
+    h += '<table class="tbl"><thead><tr><th>Nome</th><th>Icona</th><th>Trasm.</th><th>DN</th><th>Lettura</th><th>Attivo</th><th></th></tr></thead><tbody>';
+    if (!items.length) h += '<tr><td colspan="7" style="text-align:center;padding:12px;color:var(--muted)">Nessun modello</td></tr>';
+    items.forEach(function(m) {
+      h += "<tr>";
+      h += "<td><strong>" + esc(m.nome) + "</strong></td>";
+      h += "<td><i data-lucide='" + (m.icona || "thermometer") + "' style='width:14px;height:14px'></i></td>";
+      h += "<td>" + (m.trasmissione_disponibile ? "Si" : "No") + "</td>";
+      h += "<td>" + (m.dn_disponibile ? "Si" : "No") + "</td>";
+      h += "<td>" + esc(m.tipo_lettura || "\u2014") + "</td>";
+      h += '<td><span class="badge ' + (m.attivo ? "b-green" : "b-red") + '">' + (m.attivo ? "Attivo" : "Off") + "</span></td>";
+      h += '<td><button class="btn btn-ghost btn-sm" data-del-mod="' + m.id + '" style="color:var(--muted)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td>';
+      h += "</tr>";
+    });
+    h += "</tbody></table></div>";
+  });
+  h += "</div>";
+
+  /* Tab: Prezzi Installazione */
+  h += '<div class="sett-panel' + (settTab === "prezzi_inst" ? " active" : "") + '" id="pan-prezzi-inst">';
+  h += '<div class="card"><div class="sec-ttl">Prezzi Installazione Base</div>';
+  h += '<table class="tbl"><thead><tr><th>Tipo</th><th>Descrizione</th><th>Prezzo &euro;</th><th>Unita</th></tr></thead><tbody>';
+  prezziInst.forEach(function(pi) {
+    h += "<tr>";
+    h += "<td><strong>" + esc(pi.tipo) + "</strong></td>";
+    h += "<td>" + esc(pi.descrizione) + "</td>";
+    h += '<td><input class="inp" type="number" step="0.01" value="' + (pi.prezzo_base || 0) + '" data-pi-id="' + pi.id + '" style="width:100px;padding:4px 8px;font-size:.82rem" /></td>';
+    h += "<td>" + esc(pi.unita || "cad") + "</td>";
+    h += "</tr>";
+  });
+  h += "</tbody></table>";
+  h += '<div class="mt12"><button class="btn btn-primary btn-sm" id="save-prezzi-inst">Salva Prezzi Installazione</button></div>';
+  h += "</div></div>";
+
+  /* Tab 5: Utenti */
   h += '<div class="sett-panel' + (settTab === "utenti" ? " active" : "") + '" id="pan-utenti">';
   h += '<div class="fjb mb12"><div class="sec-ttl" style="margin:0">Utenti</div>';
   h += '<button class="btn btn-sm btn-primary" id="btn-new-user"><i data-lucide="plus" style="width:12px;height:12px"></i> Nuovo Utente</button></div>';
@@ -174,6 +228,39 @@ function attachEvents(config, agenti) {
         api("POST", "/api/etichette", { categoria: cat, valore: val }).then(function() { loadPage(); });
       }
     });
+  });
+
+  /* Add modello */
+  document.querySelectorAll("[data-add-mod]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var cat = this.getAttribute("data-add-mod");
+      var nome = prompt("Nome modello per " + cat + ":");
+      if (nome) {
+        api("POST", "/api/modelli", { categoria: cat, nome: nome }).then(function() { loadPage(); });
+      }
+    });
+  });
+
+  /* Delete modello */
+  document.querySelectorAll("[data-del-mod]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var mid = parseInt(this.getAttribute("data-del-mod"));
+      if (confirm("Eliminare modello?")) {
+        api("DELETE", "/api/modelli/" + mid).then(function() { loadPage(); });
+      }
+    });
+  });
+
+  /* Save prezzi installazione */
+  var savePrezziInst = document.getElementById("save-prezzi-inst");
+  if (savePrezziInst) savePrezziInst.addEventListener("click", function() {
+    var inputs = document.querySelectorAll("[data-pi-id]");
+    var promises = [];
+    inputs.forEach(function(inp) {
+      var pid = parseInt(inp.getAttribute("data-pi-id"));
+      promises.push(api("PATCH", "/api/prezzi-installazione/" + pid, { prezzo_base: parseFloat(inp.value) || 0 }));
+    });
+    Promise.all(promises).then(function() { alert("Prezzi installazione salvati"); });
   });
 
   /* New user */

@@ -182,6 +182,108 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        /* ── Prompt 1: Prodotti (listino prezzi) ── */
+        CREATE TABLE IF NOT EXISTS prodotti (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codice TEXT UNIQUE NOT NULL,
+            nome TEXT NOT NULL,
+            categoria TEXT NOT NULL,
+            modello TEXT,
+            trasmissione TEXT,
+            dn TEXT,
+            prezzo_acquisto REAL,
+            prezzo_vendita REAL,
+            data_ultimo_prezzo DATE,
+            fornitore TEXT,
+            note TEXT,
+            attivo INTEGER DEFAULT 1,
+            ordine INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Prompt 1: Modelli apparecchio ── */
+        CREATE TABLE IF NOT EXISTS modelli_apparecchio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            categoria TEXT NOT NULL,
+            nome TEXT NOT NULL,
+            icona TEXT DEFAULT 'thermometer',
+            trasmissione_disponibile INTEGER DEFAULT 0,
+            dn_disponibile INTEGER DEFAULT 0,
+            tipo_lettura TEXT,
+            attivo INTEGER DEFAULT 1,
+            ordine INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Prompt 1: Prezzi installazione base ── */
+        CREATE TABLE IF NOT EXISTS prezzi_installazione (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT NOT NULL UNIQUE,
+            descrizione TEXT NOT NULL,
+            prezzo_base REAL NOT NULL DEFAULT 0,
+            unita TEXT DEFAULT 'cad',
+            note TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        /* ── Prompt 1: Foglio costi per oggetto ── */
+        CREATE TABLE IF NOT EXISTS fogli_costi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            oggetto_id INTEGER NOT NULL,
+            offerta_id INTEGER,
+            costo_apparecchi REAL DEFAULT 0,
+            costo_installazione_idraulica REAL DEFAULT 0,
+            costo_installazione_elettrica REAL DEFAULT 0,
+            costo_concentratori REAL DEFAULT 0,
+            costo_materiali_extra REAL DEFAULT 0,
+            note_costi TEXT,
+            totale_costi REAL DEFAULT 0,
+            ricavo_fornitura REAL DEFAULT 0,
+            ricavo_servizio_annuo REAL DEFAULT 0,
+            k_moltiplicatore REAL DEFAULT 1.0,
+            margine_euro REAL DEFAULT 0,
+            margine_percentuale REAL DEFAULT 0,
+            provvigione1_nome TEXT,
+            provvigione1_percentuale REAL DEFAULT 0,
+            provvigione1_euro REAL DEFAULT 0,
+            provvigione2_nome TEXT,
+            provvigione2_percentuale REAL DEFAULT 0,
+            provvigione2_euro REAL DEFAULT 0,
+            provvigione3_nome TEXT,
+            provvigione3_percentuale REAL DEFAULT 0,
+            provvigione3_euro REAL DEFAULT 0,
+            netto_finale REAL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (oggetto_id) REFERENCES oggetti(id),
+            FOREIGN KEY (offerta_id) REFERENCES offerte(id)
+        );
+
+        /* ── Prompt 1: Righe extra foglio costi ── */
+        CREATE TABLE IF NOT EXISTS foglio_costi_extra (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            foglio_costi_id INTEGER NOT NULL,
+            descrizione TEXT NOT NULL,
+            quantita REAL DEFAULT 1,
+            prezzo_unitario REAL DEFAULT 0,
+            totale REAL DEFAULT 0,
+            FOREIGN KEY (foglio_costi_id) REFERENCES fogli_costi(id)
+        );
+
+        /* ── Prompt 1: Storico prezzi prodotti ── */
+        CREATE TABLE IF NOT EXISTS prodotti_prezzi_storico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prodotto_id INTEGER NOT NULL,
+            prezzo_acquisto_precedente REAL,
+            prezzo_vendita_precedente REAL,
+            prezzo_acquisto_nuovo REAL,
+            prezzo_vendita_nuovo REAL,
+            aggiornato_da TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (prodotto_id) REFERENCES prodotti(id)
+        );
     """)
 
     # ── Step 7: Migrations for existing DBs ──
@@ -254,6 +356,43 @@ def init_db():
             conn.execute(
                 "INSERT INTO etichette (categoria,valore,colore_bg,colore_testo) VALUES (?,?,?,?)",
                 (cat, val, bg, txt),
+            )
+
+    # ── Prompt 1: Insert default modelli apparecchio ──
+    mc = conn.execute("SELECT COUNT(*) FROM modelli_apparecchio").fetchone()[0]
+    if mc == 0:
+        modelli_def = [
+            ("ripartitore", "E-ITN40", "thermometer", 0, 0, "RK", 1),
+            ("ripartitore", "Q5.5", "thermometer", 0, 0, "RK", 2),
+            ("contatore_acqua", "SMART-WB", "droplets", 1, 1, "RK", 3),
+            ("contatore_acqua", "CSU-R", "droplets", 1, 1, "RK", 4),
+            ("contatore_calore", "ELF2", "flame", 1, 0, "RD", 5),
+            ("contatore_calore", "H5-HC", "flame", 1, 0, "RD", 6),
+            ("concentratore", "HUB-GATEWAY", "wifi", 0, 0, None, 7),
+            ("concentratore", "Q-DIRECT", "wifi", 0, 0, None, 8),
+            ("concentratore", "Q-NODE", "wifi", 0, 0, None, 9),
+            ("concentratore", "Q-GATEWAY", "wifi", 0, 0, None, 10),
+        ]
+        for cat, nome, ico, trasm, dn, tl, ordine in modelli_def:
+            conn.execute(
+                "INSERT INTO modelli_apparecchio (categoria,nome,icona,trasmissione_disponibile,dn_disponibile,tipo_lettura,ordine) VALUES (?,?,?,?,?,?,?)",
+                (cat, nome, ico, trasm, dn, tl, ordine),
+            )
+
+    # ── Prompt 1: Insert default prezzi installazione ──
+    pc = conn.execute("SELECT COUNT(*) FROM prezzi_installazione").fetchone()[0]
+    if pc == 0:
+        prezzi_def = [
+            ("ripartitore", "Installazione ripartitore di calore", 0, "cad"),
+            ("contatore_acqua", "Installazione contatore acqua", 20, "cad"),
+            ("contatore_calore", "Installazione contatore calore", 30, "cad"),
+            ("concentratore", "Installazione concentratore/gateway", 0, "cad"),
+            ("elettrica_base", "Installazione elettrica base", 0, "corpo"),
+        ]
+        for tipo, desc, prezzo, unita in prezzi_def:
+            conn.execute(
+                "INSERT INTO prezzi_installazione (tipo,descrizione,prezzo_base,unita) VALUES (?,?,?,?)",
+                (tipo, desc, prezzo, unita),
             )
 
     conn.commit()
@@ -1571,6 +1710,221 @@ def api_dashboard_admin():
             "natura": natura_stats, "agenti": agenti_perf,
         }
     })
+
+
+# ── Prompt 1: Prodotti page route ────────────────────────────────────
+
+@app.route("/prodotti")
+def prodotti_page():
+    return render_template("prodotti.html")
+
+
+# ── Prompt 1: API Prodotti ───────────────────────────────────────────
+
+@app.route("/api/prodotti", methods=["GET"])
+def api_prodotti_list():
+    conn = get_db()
+    sql = "SELECT * FROM prodotti WHERE 1=1"
+    params = []
+    cat = request.args.get("categoria")
+    if cat:
+        sql += " AND categoria=?"
+        params.append(cat)
+    q = request.args.get("q", "").strip()
+    if q:
+        sql += " AND (nome LIKE ? OR codice LIKE ?)"
+        params.extend(["%" + q + "%", "%" + q + "%"])
+    if request.args.get("da_aggiornare"):
+        sql += " AND (data_ultimo_prezzo IS NULL OR data_ultimo_prezzo < date('now','-6 months'))"
+    if not request.args.get("includi_inattivi"):
+        sql += " AND attivo=1"
+    sql += " ORDER BY categoria, ordine, nome"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/prodotti", methods=["POST"])
+def api_prodotti_create():
+    data = request.json
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            """INSERT INTO prodotti (codice,nome,categoria,modello,trasmissione,dn,
+               prezzo_acquisto,prezzo_vendita,data_ultimo_prezzo,fornitore,note,created_at,updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.get("codice", "").upper(), data.get("nome"), data.get("categoria"),
+             data.get("modello"), data.get("trasmissione"), data.get("dn"),
+             data.get("prezzo_acquisto"), data.get("prezzo_vendita"),
+             data.get("data_ultimo_prezzo", now[:10]), data.get("fornitore"),
+             data.get("note"), now, now),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM prodotti WHERE id=?", (cur.lastrowid,)).fetchone()
+        conn.close()
+        return jsonify({"ok": True, "data": dict(row)}), 201
+    except Exception as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/prodotti/<int:pid>", methods=["PATCH"])
+def api_prodotti_update(pid):
+    data = request.json
+    conn = get_db()
+    old = conn.execute("SELECT * FROM prodotti WHERE id=?", (pid,)).fetchone()
+    if not old:
+        conn.close()
+        return jsonify({"ok": False, "error": "Non trovato"}), 404
+    old = dict(old)
+
+    # Log storico prezzi se cambiano
+    new_acq = data.get("prezzo_acquisto")
+    new_ven = data.get("prezzo_vendita")
+    if new_acq is not None or new_ven is not None:
+        if (new_acq is not None and new_acq != old["prezzo_acquisto"]) or \
+           (new_ven is not None and new_ven != old["prezzo_vendita"]):
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                """INSERT INTO prodotti_prezzi_storico
+                   (prodotto_id,prezzo_acquisto_precedente,prezzo_vendita_precedente,
+                    prezzo_acquisto_nuovo,prezzo_vendita_nuovo,aggiornato_da,created_at)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (pid, old["prezzo_acquisto"], old["prezzo_vendita"],
+                 new_acq if new_acq is not None else old["prezzo_acquisto"],
+                 new_ven if new_ven is not None else old["prezzo_vendita"],
+                 data.get("aggiornato_da", ""), now),
+            )
+            if "data_ultimo_prezzo" not in data:
+                data["data_ultimo_prezzo"] = now[:10]
+
+    allowed = ["nome", "categoria", "modello", "trasmissione", "dn",
+               "prezzo_acquisto", "prezzo_vendita", "data_ultimo_prezzo",
+               "fornitore", "note", "attivo", "ordine"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(k + "=?")
+            vals.append(data[k])
+    if sets:
+        sets.append("updated_at=?")
+        vals.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        vals.append(pid)
+        conn.execute("UPDATE prodotti SET " + ",".join(sets) + " WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM prodotti WHERE id=?", (pid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/prodotti/<int:pid>", methods=["DELETE"])
+def api_prodotti_delete(pid):
+    conn = get_db()
+    conn.execute("DELETE FROM prodotti WHERE id=?", (pid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/prodotti/<int:pid>/storico", methods=["GET"])
+def api_prodotti_storico(pid):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM prodotti_prezzi_storico WHERE prodotto_id=? ORDER BY created_at DESC",
+        (pid,),
+    ).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+# ── Prompt 1: API Modelli apparecchio ────────────────────────────────
+
+@app.route("/api/modelli", methods=["GET"])
+def api_modelli_list():
+    conn = get_db()
+    cat = request.args.get("categoria")
+    if cat:
+        rows = conn.execute("SELECT * FROM modelli_apparecchio WHERE categoria=? ORDER BY ordine", (cat,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM modelli_apparecchio ORDER BY ordine").fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/modelli", methods=["POST"])
+def api_modelli_create():
+    data = request.json
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO modelli_apparecchio (categoria,nome,icona,trasmissione_disponibile,dn_disponibile,tipo_lettura,ordine) VALUES (?,?,?,?,?,?,?)",
+        (data.get("categoria"), data.get("nome"), data.get("icona", "thermometer"),
+         data.get("trasmissione_disponibile", 0), data.get("dn_disponibile", 0),
+         data.get("tipo_lettura"), data.get("ordine", 0)),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM modelli_apparecchio WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)}), 201
+
+
+@app.route("/api/modelli/<int:mid>", methods=["PATCH"])
+def api_modelli_update(mid):
+    data = request.json
+    conn = get_db()
+    allowed = ["nome", "icona", "trasmissione_disponibile", "dn_disponibile", "tipo_lettura", "attivo", "ordine"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(k + "=?")
+            vals.append(data[k])
+    if sets:
+        vals.append(mid)
+        conn.execute("UPDATE modelli_apparecchio SET " + ",".join(sets) + " WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM modelli_apparecchio WHERE id=?", (mid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
+
+
+@app.route("/api/modelli/<int:mid>", methods=["DELETE"])
+def api_modelli_delete(mid):
+    conn = get_db()
+    conn.execute("DELETE FROM modelli_apparecchio WHERE id=?", (mid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# ── Prompt 1: API Prezzi installazione ───────────────────────────────
+
+@app.route("/api/prezzi-installazione", methods=["GET"])
+def api_prezzi_inst_list():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM prezzi_installazione ORDER BY id").fetchall()
+    conn.close()
+    return jsonify({"ok": True, "data": [dict(r) for r in rows]})
+
+
+@app.route("/api/prezzi-installazione/<int:pid>", methods=["PATCH"])
+def api_prezzi_inst_update(pid):
+    data = request.json
+    conn = get_db()
+    allowed = ["descrizione", "prezzo_base", "unita", "note"]
+    sets, vals = [], []
+    for k in allowed:
+        if k in data:
+            sets.append(k + "=?")
+            vals.append(data[k])
+    if sets:
+        sets.append("updated_at=?")
+        vals.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        vals.append(pid)
+        conn.execute("UPDATE prezzi_installazione SET " + ",".join(sets) + " WHERE id=?", vals)
+        conn.commit()
+    row = conn.execute("SELECT * FROM prezzi_installazione WHERE id=?", (pid,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "data": dict(row)})
 
 
 # ── Startup ──────────────────────────────────────────────────────────
