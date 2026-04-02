@@ -637,7 +637,7 @@ function attachDashEvents(c) {
   /* Row click to expand */
   c.querySelectorAll("tr[data-oid]").forEach(function(tr) {
     tr.addEventListener("click", function(e) {
-      if (e.target.closest(".editable") || e.target.closest(".act-btns") || e.target.closest(".stato-badge") || e.target.closest("input[type=checkbox]")) return;
+      if (e.target.closest(".editable") || e.target.closest(".act-btns") || e.target.closest(".act-del") || e.target.closest(".stato-badge") || e.target.closest("input[type=checkbox]")) return;
       var oid = parseInt(this.getAttribute("data-oid"));
       dashExpanded = dashExpanded === oid ? null : oid;
       buildDashboard(c);
