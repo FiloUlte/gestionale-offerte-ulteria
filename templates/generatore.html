@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ulteria — Generatore Offerte IA</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css?v=14">
+  <style>
+    body{overflow:auto;background:var(--bg)}
+    .gen-page{max-width:1300px;margin:0 auto;padding:24px}
+    .gen-header{margin-bottom:24px}
+    .gen-sub{font-size:.82rem;color:var(--muted);margin-top:6px;max-width:550px;line-height:1.5}
+    .gen-badge-ai{font-size:.62rem;color:var(--muted);background:#f1f5f9;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:8px}
+    .gen-cols{display:flex;gap:24px;align-items:flex-start}
+    .gen-left{flex:0 0 63%;min-width:0}
+    .gen-right{flex:0 0 35%;position:sticky;top:24px}
+    @media(max-width:900px){.gen-cols{flex-direction:column}.gen-left,.gen-right{flex:1 1 auto;width:100%}.gen-right{position:static}}
+
+    /* Cards */
+    .gen-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;border-left:3px solid transparent}
+    .gen-card-blue{border-left-color:#009FE3}
+    .gen-card-hdr{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:700;color:var(--text);margin-bottom:14px;cursor:pointer;user-select:none}
+    .gen-card-hdr i{color:var(--blue);flex-shrink:0}
+    .gen-card-body{overflow:hidden;transition:max-height .3s ease,opacity .3s ease}
+    .gen-card-body.collapsed{max-height:0!important;opacity:0;padding:0;margin:0}
+
+    /* Section separator */
+    .gen-sep{border:none;border-top:1px dashed var(--border);margin:16px 0}
+
+    /* Labels */
+    .gen-label{font-size:.75rem;font-weight:700;color:var(--mid);margin-bottom:4px}
+    .gen-row{display:flex;gap:12px;margin-bottom:12px}
+    .gen-row>*{flex:1}
+    .gen-row-30-70>:first-child{flex:0 0 30%}.gen-row-30-70>:last-child{flex:0 0 68%}
+    .gen-field{margin-bottom:12px}
+
+    /* Pill buttons */
+    .pill-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+    .pill-btn{padding:7px 16px;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--mid);transition:all .15s;font-family:inherit;white-space:nowrap}
+    .pill-btn:hover{border-color:var(--blue);color:var(--blue)}
+    .pill-btn.on{background:#E6F5FC;color:#005F8A;border-color:#009FE3;transform:scale(1.02);box-shadow:0 2px 8px rgba(0,159,227,.12)}
+
+    /* Big select buttons */
+    .tipo-cards{display:flex;gap:12px;margin-bottom:8px}
+    .tipo-card{flex:1;padding:16px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;background:var(--white)}
+    .tipo-card:hover{border-color:var(--blue);transform:translateY(-1px)}
+    .tipo-card.on{border-color:#009FE3;background:#E6F5FC}
+    .tipo-card-icon{font-size:1.5rem;margin-bottom:6px;color:var(--mid)}
+    .tipo-card.on .tipo-card-icon{color:#009FE3}
+    .tipo-card-title{font-size:.85rem;font-weight:700;color:var(--text)}
+    .tipo-card-sub{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+    /* Toggle switch */
+    .gen-toggle{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:background .15s;margin-bottom:8px}
+    .gen-toggle:hover{background:var(--bg)}
+    .gen-toggle.active{background:#E6F5FC}
+    .gen-toggle-sw{width:36px;height:20px;border-radius:10px;background:#cbd5e1;position:relative;transition:background .2s;flex-shrink:0}
+    .gen-toggle.active .gen-toggle-sw{background:#009FE3}
+    .gen-toggle-sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s}
+    .gen-toggle.active .gen-toggle-sw::after{left:18px}
+    .gen-toggle-label{font-size:.85rem;font-weight:600;color:var(--text)}
+    .gen-toggle-icon{flex-shrink:0}
+
+    /* Natura radio buttons */
+    .natura-group{display:flex;gap:8px;flex-wrap:wrap}
+    .natura-btn{flex:1;min-width:120px;padding:12px 10px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .15s;background:var(--white);font-family:inherit}
+    .natura-btn:hover{border-color:var(--blue)}
+    .natura-btn.on{border-color:#009FE3;background:#E6F5FC}
+    .natura-btn-icon{font-size:1.1rem;margin-bottom:4px}
+    .natura-btn-label{font-size:.75rem;font-weight:700;color:var(--text)}
+
+    /* Badge servizio */
+    .badge-servizio{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:700;background:#EAF3DE;color:#639922;margin-top:6px}
+
+    /* Riepilogo */
+    .riepilogo{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+    .riep-hdr{font-size:.92rem;font-weight:700;margin-bottom:4px}
+    .riep-sub{font-size:.72rem;color:var(--muted);margin-bottom:14px}
+    .riep-section{margin-bottom:12px}
+    .riep-section-title{font-size:.62rem;font-weight:700;letter-spacing:.02em;color:var(--muted);margin-bottom:6px}
+    .riep-line{font-size:.82rem;color:var(--text);margin-bottom:3px}
+    .riep-line-sub{font-size:.72rem;color:var(--muted);margin-left:16px}
+    .riep-sep{border:none;border-top:1px solid var(--border);margin:12px 0}
+    .riep-totals{background:var(--bg);border-radius:8px;padding:12px 14px}
+    .riep-total-row{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px}
+    .riep-total-label{color:var(--mid)}
+    .riep-total-val{font-weight:700;color:var(--text)}
+    .riep-total-val-big{font-weight:800;color:#009FE3;font-size:1rem}
+    .riep-empty{text-align:center;padding:30px 16px;color:var(--muted);font-size:.85rem}
+    .badge-stima{background:#FAEEDA;color:#854F0B;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px}
+
+    /* Checklist */
+    .checklist{margin-top:14px}
+    .check-item{display:flex;align-items:center;gap:6px;font-size:.78rem;margin-bottom:4px}
+    .check-ok{color:#639922}
+    .check-warn{color:#f59e0b}
+
+    /* Generate button */
+    .gen-btn-wrap{margin-top:20px}
+    .gen-btn{width:100%;padding:14px;background:#009FE3;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .gen-btn:hover{background:#0080B8}
+    .gen-btn:active{transform:scale(.98)}
+    .gen-btn:disabled{opacity:.5;cursor:not-allowed}
+    .gen-btn .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Autocomplete */
+    .ac-wrap{position:relative}
+    .ac-drop{position:absolute;top:100%;left:0;right:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:200px;overflow-y:auto;margin-top:2px}
+    .ac-item{padding:8px 12px;cursor:pointer;font-size:.82rem;transition:background .1s}
+    .ac-item:hover{background:var(--bg)}
+    .ac-item-badge{font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:6px}
+  </style>
+</head>
+<body>
+  <div class="gen-page" id="gen-page">
+    <div style="padding:40px;text-align:center;color:var(--muted)">Caricamento...</div>
+  </div>
+  <script src="/static/generatore.js?v=1"></script>
+</body>
+</html>

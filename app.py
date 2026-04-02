@@ -1927,6 +1927,270 @@ def api_prezzi_inst_update(pid):
     return jsonify({"ok": True, "data": dict(row)})
 
 
+# ── Prompt 2: Generatore Offerte IA ──────────────────────────────────
+
+@app.route("/generatore")
+def generatore_page():
+    return render_template("generatore.html")
+
+
+@app.route("/api/templates", methods=["GET"])
+def api_templates_list():
+    templates = []
+    for f in UPLOADS_DIR.glob("*.docx"):
+        templates.append({
+            "filename": f.name,
+            "size": f.stat().st_size,
+            "modified": datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M"),
+            "tipo": "E40" if "E40" in f.name else ("Q55" if "Q5.5" in f.name or "Q55" in f.name else "altro"),
+        })
+    return jsonify({"ok": True, "data": templates})
+
+
+@app.route("/api/generatore/crea", methods=["POST"])
+def api_generatore_crea():
+    data = request.json
+    conn = get_db()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Validate
+    required = ["nome_studio", "cond_via", "cond_comune", "natura", "tipo_offerta", "agente_id"]
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        conn.close()
+        return jsonify({"ok": False, "error": "Campi mancanti: " + ", ".join(missing)}), 400
+
+    # 2. Numero progressivo
+    cfg = read_config()
+    numero = cfg["prossimo_numero"]
+    cfg["prossimo_numero"] = numero + 1
+    write_config(cfg)
+
+    # 3. Cliente
+    nome_studio = data["nome_studio"].strip()
+    cliente_id = None
+    if data.get("cliente_id"):
+        cliente_id = int(data["cliente_id"])
+    else:
+        existing = conn.execute("SELECT id FROM clienti WHERE LOWER(nome_studio)=LOWER(?)", (nome_studio,)).fetchone()
+        if existing:
+            cliente_id = existing[0]
+        elif data.get("salva_anagrafica", True):
+            cur = conn.execute(
+                "INSERT INTO clienti (nome_studio,via,cap,citta,email,telefono,referente,tipo_cliente,data_inserimento) VALUES (?,?,?,?,?,?,?,?,?)",
+                (nome_studio, data.get("cliente_via", ""), data.get("cliente_cap", ""),
+                 data.get("cliente_citta", ""), data.get("cliente_email", ""),
+                 data.get("cliente_telefono", ""), data.get("cliente_referente", ""),
+                 data.get("tipo_cliente", "Amministratore"), now),
+            )
+            cliente_id = cur.lastrowid
+
+    # 4. Oggetto/Condominio
+    oggetto_id = None
+    if data.get("oggetto_id"):
+        oggetto_id = int(data["oggetto_id"])
+    else:
+        cur = conn.execute(
+            "INSERT INTO oggetti (cliente_id,nome,via,civico,comune,provincia,cap,agente_id,natura,n_unita,n_scale,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (cliente_id, data.get("cond_nome", ""), data["cond_via"],
+             data.get("cond_civico", ""), data["cond_comune"],
+             data.get("cond_provincia", ""), data.get("cond_cap", ""),
+             int(data["agente_id"]), data["natura"],
+             data.get("n_unita"), data.get("n_scale"), now),
+        )
+        oggetto_id = cur.lastrowid
+
+    # 5. Calcola importi
+    apparecchi = data.get("apparecchi", [])
+    importo_fornitura = 0
+    for ap in apparecchi:
+        importo_fornitura += (ap.get("prezzo_vendita", 0) or 0) * (ap.get("quantita", 0) or 0)
+
+    centralizzazione = data.get("centralizzazione", {})
+    if centralizzazione.get("attiva") and centralizzazione.get("tipo_fornitura") == "vendita":
+        importo_fornitura += (centralizzazione.get("prezzo_unitario", 0) or 0) * (centralizzazione.get("quantita", 1) or 1)
+
+    servizi = data.get("servizi", {})
+    importo_annuo = 0
+    lettura = servizi.get("lettura", {})
+    if lettura.get("prezzo", 0):
+        importo_annuo += (lettura.get("prezzo", 0) or 0) * (lettura.get("quantita", 0) or 0)
+    care = servizi.get("care", {})
+    if care.get("attivo") and care.get("prezzo", 0):
+        importo_annuo += (care.get("prezzo", 0) or 0) * (care.get("quantita", 0) or 0)
+
+    # Determine template
+    template_file = data.get("template", "")
+    template_key = "E40" if "E40" in template_file else ("Q55" if "Q5.5" in template_file or "Q55" in template_file else "E40")
+
+    # 6. INSERT offerta
+    cur = conn.execute(
+        """INSERT INTO offerte (numero,nome_studio,nome_condominio,via,cap,citta,
+           riferimento,template,prezzo_fornitura,prezzo_care,canone_lettura,
+           modalita,importo,importo_servizio_annuo,stato,email_studio,
+           data_creazione,agente_id,oggetto_id,tipo_offerta,natura,
+           is_accordo_quadro,stato_versione,versione)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (numero, nome_studio, data.get("cond_nome", ""),
+         data["cond_via"], data.get("cond_cap", ""), data["cond_comune"],
+         "", template_key,
+         None, None, None, "vendita",
+         importo_fornitura, importo_annuo,
+         "richiamato", data.get("cliente_email", ""), now,
+         int(data["agente_id"]), oggetto_id,
+         data["tipo_offerta"], data["natura"], 0, "attiva", "A"),
+    )
+    offerta_id = cur.lastrowid
+
+    # 7. INSERT righe
+    ordine = 0
+    for ap in apparecchi:
+        ordine += 1
+        conn.execute(
+            "INSERT INTO offerte_righe (offerta_id,descrizione,tipo_riga,prezzo_unitario,quantita,quantita_stimata,totale_riga,ordine) VALUES (?,?,?,?,?,?,?,?)",
+            (offerta_id, ap.get("modello", "") + " " + ap.get("categoria", ""),
+             "fornitura", ap.get("prezzo_vendita", 0), ap.get("quantita", 0),
+             1 if ap.get("stimata") else 0,
+             (ap.get("prezzo_vendita", 0) or 0) * (ap.get("quantita", 0) or 0), ordine),
+        )
+    if centralizzazione.get("attiva") and centralizzazione.get("tipo_fornitura") == "vendita":
+        ordine += 1
+        conn.execute(
+            "INSERT INTO offerte_righe (offerta_id,descrizione,tipo_riga,prezzo_unitario,quantita,totale_riga,ordine) VALUES (?,?,?,?,?,?,?)",
+            (offerta_id, "Concentratore " + centralizzazione.get("modello", ""),
+             "fornitura", centralizzazione.get("prezzo_unitario", 0),
+             centralizzazione.get("quantita", 1),
+             (centralizzazione.get("prezzo_unitario", 0) or 0) * (centralizzazione.get("quantita", 1) or 1), ordine),
+        )
+    if lettura.get("prezzo", 0):
+        ordine += 1
+        conn.execute(
+            "INSERT INTO offerte_righe (offerta_id,descrizione,tipo_riga,prezzo_unitario,quantita,totale_riga,ordine) VALUES (?,?,?,?,?,?,?)",
+            (offerta_id, "Lettura consumi " + lettura.get("tipo", "RK"),
+             "servizio_annuo", lettura.get("prezzo", 0), lettura.get("quantita", 0),
+             (lettura.get("prezzo", 0) or 0) * (lettura.get("quantita", 0) or 0), ordine),
+        )
+    if care.get("attivo") and care.get("prezzo", 0):
+        ordine += 1
+        conn.execute(
+            "INSERT INTO offerte_righe (offerta_id,descrizione,tipo_riga,prezzo_unitario,quantita,totale_riga,ordine) VALUES (?,?,?,?,?,?,?)",
+            (offerta_id, "Ulteria Care", "care", care.get("prezzo", 0), care.get("quantita", 0),
+             (care.get("prezzo", 0) or 0) * (care.get("quantita", 0) or 0), ordine),
+        )
+
+    conn.commit()
+
+    # 8-11. DOCX Generation
+    slug = studio_slug(nome_studio)
+    tipo = template_key
+    anno = datetime.now().strftime("%Y")
+    folder_name = f"{numero}_{slug}_{tipo}"
+    dest_dir = OUTPUT_DIR / anno / folder_name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    file_base = f"ULTERIA_{numero}_{slug}_{tipo}"
+    docx_name = f"{file_base}.docx"
+    docx_path = dest_dir / docx_name
+
+    # Find template source
+    src = None
+    if template_file and (UPLOADS_DIR / template_file).exists():
+        src = UPLOADS_DIR / template_file
+    elif template_key in TEMPLATE_MAP:
+        src = UPLOADS_DIR / TEMPLATE_MAP[template_key]
+
+    docx_rel = None
+    pdf_rel = None
+    pdf_error = False
+
+    if src and src.exists():
+        shutil.copy2(str(src), str(docx_path))
+        doc = Document(str(docx_path))
+
+        via_full = data["cond_via"] + (" " + data.get("cond_civico", "") if data.get("cond_civico") else "")
+        dat_str = datetime.now().strftime("%d/%m/%Y")
+        agente_row = conn.execute("SELECT nome,cognome FROM agenti WHERE id=?", (int(data["agente_id"]),)).fetchone()
+        agente_nome = (agente_row["nome"] + " " + agente_row["cognome"]) if agente_row else ""
+
+        # Ripartitore info
+        rip = next((a for a in apparecchi if a.get("categoria") == "ripartitore"), None)
+        ca = next((a for a in apparecchi if a.get("categoria") == "contatore_acqua"), None)
+        cc = next((a for a in apparecchi if a.get("categoria") == "contatore_calore"), None)
+        tipo_lettura = "RD" if cc else "RK"
+
+        # Replace placeholders — existing style «»
+        replace_runs(doc.paragraphs, "\u00abSTU\u00bb", nome_studio)
+        replace_runs(doc.paragraphs, "\u00abVIA\u00bb", via_full)
+        replace_runs(doc.paragraphs, "\u00abDAT\u00bb", dat_str)
+
+        fix_stu_via_paragraph(doc, nome_studio, via_full)
+
+        # All sections XML
+        for section in doc.sections:
+            for part in [section.header, section.footer, section.first_page_header,
+                         section.first_page_footer, section.even_page_header, section.even_page_footer]:
+                if part:
+                    try:
+                        replace_xml(part._element, "\u00abNR\u00bb", str(numero))
+                        replace_xml(part._element, "\u00abSTU\u00bb", nome_studio)
+                    except Exception:
+                        pass
+
+        # Body XML — all placeholders
+        body_el = doc.element.body
+        replace_xml(body_el, "\u00abNR\u00bb", str(numero))
+        replace_xml(body_el, "\u00abSTU\u00bb", nome_studio)
+        replace_xml(body_el, "\u00abVIA\u00bb", via_full)
+        replace_xml(body_el, "\u00abDAT\u00bb", dat_str)
+        replace_xml(body_el, "\u00abPFO\u00bb", format_eur(importo_fornitura) if importo_fornitura else "\u2014")
+        replace_xml(body_el, "\u00abPCA\u00bb", format_eur(care.get("prezzo", 0)) if care.get("attivo") else "\u2014")
+        replace_xml(body_el, "\u00abPCL\u00bb", format_eur(lettura.get("prezzo", 0)) if lettura.get("prezzo") else "\u2014")
+        replace_xml(body_el, "\u00abMOD\u00bb", rip["modello"] if rip else (ca["modello"] if ca else ""))
+
+        doc.save(str(docx_path))
+        docx_rel = f"/output/{anno}/{folder_name}/{docx_name}"
+
+        # PDF
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            try:
+                import win32com.client
+                word = win32com.client.Dispatch("Word.Application")
+                word.Visible = False
+                word.DisplayAlerts = False
+                doc_com = word.Documents.Open(str(docx_path.resolve()))
+                pdf_path = dest_dir / f"{file_base}.pdf"
+                doc_com.SaveAs2(str(pdf_path.resolve()), FileFormat=17)
+                doc_com.Close(False)
+                word.Quit()
+                pdf_rel = f"/output/{anno}/{folder_name}/{file_base}.pdf"
+            finally:
+                pythoncom.CoUninitialize()
+        except Exception as e:
+            pdf_error = True
+            app.logger.warning(f"PDF conversion failed: {e}")
+
+    # 12. Update offerta paths
+    conn.execute("UPDATE offerte SET path_docx=?, path_pdf=? WHERE id=?", (docx_rel, pdf_rel, offerta_id))
+
+    # Timeline event
+    conn.execute(
+        "INSERT INTO timeline_eventi (tipo_evento,descrizione,offerta_id,oggetto_id,created_at) VALUES (?,?,?,?,?)",
+        ("offerta_creata", f"Offerta {numero} generata via Generatore IA", offerta_id, oggetto_id, now),
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "ok": True,
+        "offerta_id": offerta_id,
+        "numero_offerta": str(numero),
+        "path_docx": docx_rel,
+        "path_pdf": pdf_rel,
+        "pdf_error": pdf_error,
+    })
+
+
 # ── Startup ──────────────────────────────────────────────────────────
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
