@@ -408,13 +408,13 @@ function buildDashboard(c) {
     /* Agente */
     if (dashVisibleCols.indexOf("agente_id") >= 0) {
       if (o.agente_id) {
-        h += "<td>" + agenteHtml(o.agente_id) + "</td>";
+        h += '<td class="editable" data-field="agente_id">' + agenteHtml(o.agente_id) + "</td>";
       } else if (o.agente_nome) {
         var agIni = ((o.agente_nome || " ")[0] + (o.agente_cognome || " ")[0]).toUpperCase();
         var agCol = o.agente_colore || "#009FE3";
-        h += '<td><span class="agente-pill"><span class="agente-dot" style="background:' + agCol + '">' + agIni + "</span>" + esc(o.agente_nome) + "</span></td>";
+        h += '<td class="editable" data-field="agente_id"><span class="agente-pill"><span class="agente-dot" style="background:' + agCol + '">' + agIni + "</span>" + esc(o.agente_nome) + "</span></td>";
       } else {
-        h += '<td style="color:var(--muted);font-size:.72rem">Non assegnato</td>';
+        h += '<td class="editable" data-field="agente_id" style="color:var(--muted);font-size:.72rem">Non assegnato</td>';
       }
     }
     /* Stato */
@@ -613,12 +613,7 @@ function attachDashEvents(c) {
 
   /* Toolbar */
   var btnNuovaRiga = document.getElementById("btn-nuova-riga");
-  if (btnNuovaRiga) btnNuovaRiga.addEventListener("click", function() {
-    api("POST", "/api/offerte", { nome_studio: "", template: "E40", stato: "richiamato" }).then(function() {
-      toast("Riga creata", "ok");
-      renderDashboard(c);
-    });
-  });
+  if (btnNuovaRiga) btnNuovaRiga.addEventListener("click", function() { showNuovaOffertaModal(c); });
   var btnCsv = document.getElementById("btn-csv");
   if (btnCsv) btnCsv.addEventListener("click", function() { esportaCsv(offerte); });
   var bulkDesel = document.getElementById("bulk-desel");
@@ -678,7 +673,7 @@ function attachDashEvents(c) {
       var field = td.getAttribute("data-field");
       if (field === "agente_id") editAgente(td, oid, c);
       else if (field === "template") editTemplate(td, oid, c);
-      else if (field === "importo") editImporto(td, oid, c);
+      else if (field === "importo" || field === "valore_commessa") editImporto(td, oid, c);
       else editCell(td, oid, field, c);
     });
   });
@@ -787,10 +782,11 @@ function editCell(td, oid, field, cont) {
 function editImporto(td, oid, cont) {
   if (td.querySelector("input")) return;
   var off = offerte.find(function(o) { return o.id === oid; });
-  var imp = off ? ((off.prezzo_fornitura || 0) + (off.prezzo_care || 0) + (off.canone_lettura || 0)) : 0;
+  var imp = off ? (off.valore_commessa || off.importo || 0) : 0;
   var inp = document.createElement("input");
   inp.className = "cell-edit";
   inp.type = "number";
+  inp.step = "0.01";
   inp.value = imp || "";
   td.textContent = "";
   td.appendChild(inp);
@@ -799,7 +795,7 @@ function editImporto(td, oid, cont) {
 
   function save() {
     var v = parseFloat(inp.value) || 0;
-    api("PUT", "/api/offerte/" + oid, { importo: v, prezzo_fornitura: v }).then(function() {
+    api("PUT", "/api/offerte/" + oid, { valore_commessa: v, importo: v }).then(function() {
       toast("Salvato", "ok");
       renderDashboard(cont);
     });
@@ -923,6 +919,133 @@ function showMotivoPerdita(oid, oldStato, cont) {
     footer.appendChild(btnConfirm);
   }
 }
+
+/* ─── Nuova Offerta Modal ─── */
+
+function showNuovaOffertaModal(cont) {
+  var overlay = document.createElement("div");
+  overlay.className = "modal-overlay show";
+  overlay.id = "modal-overlay";
+  overlay.addEventListener("click", function(e) { if (e.target === overlay) closeModal(); });
+
+  var modal = document.createElement("div");
+  modal.className = "modal";
+  modal.style.width = "720px";
+  modal.style.maxHeight = "90vh";
+  modal.style.overflowY = "auto";
+
+  var header = document.createElement("div");
+  header.className = "modal-header";
+  header.innerHTML = "<h2>Nuova Offerta</h2>";
+
+  var body = document.createElement("div");
+  body.className = "modal-body";
+
+  var agOpts = '<option value="">-- Seleziona --</option>';
+  agenti.forEach(function(a) {
+    agOpts += '<option value="' + a.id + '">' + esc(a.nome + " " + a.cognome) + "</option>";
+  });
+
+  var macroOpts = '<option value="">-- Nessuna --</option>';
+  macroOpts += '<option value="installazione">Installazione</option>';
+  macroOpts += '<option value="servizi">Servizi</option>';
+  macroOpts += '<option value="cc_modus">CC-Modus</option>';
+  macroOpts += '<option value="cu_unitron">CU-Unitron</option>';
+  macroOpts += '<option value="fornitura">Fornitura</option>';
+  macroOpts += '<option value="interventi">Interventi</option>';
+
+  var bh = "";
+  bh += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+  bh += '<div class="form-field"><label>Studio / Cliente *</label><input class="inp" id="no-studio" /></div>';
+  bh += '<div class="form-field"><label>Agente *</label><select class="inp" id="no-agente">' + agOpts + "</select></div>";
+
+  bh += '<div class="form-field"><label>Nome Condominio</label><input class="inp" id="no-cond-nome" /></div>';
+  bh += '<div class="form-field"><label>Via Condominio *</label><input class="inp" id="no-cond-via" /></div>';
+
+  bh += '<div class="form-field"><label>Comune *</label><input class="inp" id="no-cond-comune" /></div>';
+  bh += '<div class="form-field"><label>Provincia</label><input class="inp" id="no-cond-prov" /></div>';
+
+  bh += '<div class="form-field"><label>Macro Categoria</label><select class="inp" id="no-macro">' + macroOpts + "</select></div>";
+  bh += '<div class="form-field"><label>Sottotipo</label><input class="inp" id="no-sottotipo" placeholder="es. CK, RK, MANSIS..." /></div>';
+
+  bh += '<div class="form-field"><label>Natura</label><select class="inp" id="no-natura"><option value="nuovo">Nuovo</option><option value="rinnovo">Rinnovo</option><option value="subentro_diretto">Subentro Diretto</option><option value="subentro_intermediario">Subentro Intermediario</option></select></div>';
+  bh += '<div class="form-field"><label>Stato</label><select class="inp" id="no-stato"><option value="richiamato">Richiamato</option><option value="in_attesa_assemblea">In Attesa Assemblea</option><option value="preso_lavoro">Preso Lavoro</option><option value="perso">Perso</option><option value="rimandato">Rimandato</option></select></div>';
+
+  bh += '<div class="form-field"><label>Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="no-valore" /></div>';
+  bh += '<div class="form-field"><label>Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="no-annuo" /></div>';
+
+  bh += '<div class="form-field"><label>Template</label><select class="inp" id="no-template"><option value="">-- Nessuno --</option><option value="E40">E-ITN40</option><option value="Q55">Q5.5</option></select></div>';
+  bh += '<div class="form-field"><label>Email Cliente</label><input class="inp" id="no-email" type="email" /></div>';
+
+  bh += '<div class="form-field" style="grid-column:1/-1"><label>Note</label><textarea class="inp" id="no-note" rows="2"></textarea></div>';
+
+  bh += '<div class="form-field"><label><input type="checkbox" id="no-gara" /> Gara Appalto</label></div>';
+  bh += '<div class="form-field"><label>ID Gara</label><input class="inp" id="no-gara-id" /></div>';
+  bh += '<div class="form-field"><label>Valore Gara &euro;</label><input class="inp" type="number" step="0.01" id="no-gara-val" /></div>';
+
+  bh += "</div>";
+  body.innerHTML = bh;
+
+  var footer = document.createElement("div");
+  footer.className = "modal-footer";
+  var btnCancel = document.createElement("button");
+  btnCancel.className = "btn btn-sec";
+  btnCancel.textContent = "Annulla";
+  btnCancel.addEventListener("click", closeModal);
+
+  var btnSave = document.createElement("button");
+  btnSave.className = "btn btn-primary";
+  btnSave.textContent = "Crea Offerta";
+  btnSave.addEventListener("click", function() {
+    var studio = document.getElementById("no-studio").value.trim();
+    var condVia = document.getElementById("no-cond-via").value.trim();
+    var condComune = document.getElementById("no-cond-comune").value.trim();
+    var agenteId = document.getElementById("no-agente").value;
+
+    if (!studio) { alert("Studio / Cliente obbligatorio"); return; }
+
+    var payload = {
+      nome_studio: studio,
+      nome_condominio: document.getElementById("no-cond-nome").value,
+      via: condVia,
+      citta: condComune,
+      cap: document.getElementById("no-cond-prov").value,
+      agente_id: agenteId ? parseInt(agenteId) : null,
+      macro_categoria: document.getElementById("no-macro").value || null,
+      sottotipo: document.getElementById("no-sottotipo").value || null,
+      natura: document.getElementById("no-natura").value,
+      stato: document.getElementById("no-stato").value,
+      valore_commessa: parseFloat(document.getElementById("no-valore").value) || null,
+      importo: parseFloat(document.getElementById("no-valore").value) || null,
+      importo_servizio_annuo: parseFloat(document.getElementById("no-annuo").value) || null,
+      template: document.getElementById("no-template").value || null,
+      email_studio: document.getElementById("no-email").value || null,
+      note: document.getElementById("no-note").value || null,
+      is_gara_appalto: document.getElementById("no-gara").checked ? 1 : 0,
+      gara_id: document.getElementById("no-gara-id").value || null,
+      valore_gara: parseFloat(document.getElementById("no-gara-val").value) || null,
+      stato_versione: "attiva",
+      versione: "A"
+    };
+
+    api("POST", "/api/offerte", payload).then(function() {
+      closeModal();
+      toast("Offerta creata", "ok");
+      renderDashboard(cont);
+    });
+  });
+
+  footer.appendChild(btnCancel);
+  footer.appendChild(btnSave);
+  modal.appendChild(header);
+  modal.appendChild(body);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  icons();
+}
+
 
 /* ─── Actions ─── */
 
