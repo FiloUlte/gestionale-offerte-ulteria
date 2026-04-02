@@ -871,14 +871,26 @@ def api_offerte_list():
 def api_offerte_create():
     data = request.json
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Assign numero progressivo
+    cfg = read_config()
+    numero = cfg.get("prossimo_numero", 26000)
+    cfg["prossimo_numero"] = numero + 1
+    write_config(cfg)
+
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO offerte
-           (nome_studio, nome_condominio, via, cap, citta, riferimento,
+           (numero, nome_studio, nome_condominio, via, cap, citta, riferimento,
             template, prezzo_fornitura, prezzo_care, canone_lettura,
-            modalita, totale, stato, email_studio, data_creazione, note)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            modalita, totale, stato, email_studio, data_creazione, note,
+            agente_id, oggetto_id, macro_categoria, sottotipo,
+            valore_commessa, importo, importo_servizio_annuo,
+            natura, tipo_offerta, is_gara_appalto, gara_id, valore_gara,
+            stato_versione, versione, segnalatore_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
+            numero,
             data.get("nome_studio", ""),
             data.get("nome_condominio", ""),
             data.get("via", ""),
@@ -895,6 +907,21 @@ def api_offerte_create():
             data.get("email_studio", ""),
             now,
             data.get("note", ""),
+            data.get("agente_id"),
+            data.get("oggetto_id"),
+            data.get("macro_categoria"),
+            data.get("sottotipo"),
+            data.get("valore_commessa"),
+            data.get("importo"),
+            data.get("importo_servizio_annuo"),
+            data.get("natura", "nuovo"),
+            data.get("tipo_offerta"),
+            data.get("is_gara_appalto", 0),
+            data.get("gara_id"),
+            data.get("valore_gara"),
+            data.get("stato_versione", "attiva"),
+            data.get("versione", "A"),
+            data.get("segnalatore_id"),
         ),
     )
     conn.commit()
