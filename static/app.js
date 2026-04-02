@@ -956,7 +956,7 @@ function showNuovaOffertaModal(cont) {
   });
 
   var sottotipiDef = [
-    { val: "CK", label: "CK", desc: "Sostituzione Ripartitori", macro: "installazione", icon: "thermometer", color: "#009FE3", bg: "#E6F5FC" },
+    { val: "CK", label: "CK", desc: "Sostituzione Ripartitori", macro: "installazione", icon: "heater", color: "#009FE3", bg: "#E6F5FC" },
     { val: "CL", label: "CL", desc: "Commesse Lavori", macro: "installazione", icon: "wrench", color: "#EF9F27", bg: "#FFF3E0" },
     { val: "RK", label: "RK", desc: "Lettura Ripartitori", macro: "servizi", icon: "radio", color: "#639922", bg: "#EAF3DE" },
     { val: "RD", label: "RD", desc: "Lettura Diretta", macro: "servizi", icon: "radio", color: "#173404", bg: "#C0DD97" },
