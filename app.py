@@ -401,6 +401,13 @@ def init_db():
         "ALTER TABLE offerte ADD COLUMN segnalatore_id INTEGER REFERENCES segnalatori(id)",
         "ALTER TABLE offerte ADD COLUMN tipo_servizio TEXT",
         "ALTER TABLE offerte ADD COLUMN tipo_servizio_secondario TEXT",
+        # ── Prompt 5: Riepilogo refactoring ──
+        "ALTER TABLE offerte ADD COLUMN macro_categoria TEXT",
+        "ALTER TABLE offerte ADD COLUMN sottotipo TEXT",
+        "ALTER TABLE offerte ADD COLUMN is_gara_appalto INTEGER DEFAULT 0",
+        "ALTER TABLE offerte ADD COLUMN valore_gara REAL",
+        "ALTER TABLE offerte ADD COLUMN gara_id TEXT",
+        "ALTER TABLE offerte ADD COLUMN valore_commessa REAL",
     ]
     for stmt in migrations:
         try:
@@ -464,6 +471,28 @@ def init_db():
             ("tipo_servizio", "RD", "#EAF3DE", "#639922"),
             ("tipo_servizio", "MANSIS", "#FAEEDA", "#854F0B"),
             ("tipo_servizio", "MANCT", "#EEEDFE", "#534AB7"),
+            # Prompt 5: macro_categoria
+            ("macro_categoria", "installazione", "#E6F5FC", "#0080B8"),
+            ("macro_categoria", "servizi", "#EAF3DE", "#3B6D11"),
+            ("macro_categoria", "cc_modus", "#FAEEDA", "#854F0B"),
+            ("macro_categoria", "cu_unitron", "#EEEDFE", "#3C3489"),
+            ("macro_categoria", "fornitura", "#FAECE7", "#993C1D"),
+            ("macro_categoria", "interventi", "#F1EFE8", "#5F5E5A"),
+            # Prompt 5: sottotipo
+            ("sottotipo", "CK", "#E6F5FC", "#0080B8"),
+            ("sottotipo", "CL", "#B5D4F4", "#042C53"),
+            ("sottotipo", "RK", "#EAF3DE", "#3B6D11"),
+            ("sottotipo", "RD", "#C0DD97", "#173404"),
+            ("sottotipo", "MANSIS", "#FAEEDA", "#854F0B"),
+            ("sottotipo", "MAN-DOMO", "#FAC775", "#412402"),
+            ("sottotipo", "SIM-HOSTING", "#F1EFE8", "#5F5E5A"),
+            ("sottotipo", "MANCT", "#EEEDFE", "#3C3489"),
+            ("sottotipo", "AVV-SIS", "#FAECE7", "#993C1D"),
+            ("sottotipo", "AVV-CONT-MBUS", "#F5C4B3", "#4A1B0C"),
+            ("sottotipo", "AVV-RADIO", "#F0997B", "#4A1B0C"),
+            ("sottotipo", "MISURATORI", "#FAECE7", "#993C1D"),
+            ("sottotipo", "RICAMBI", "#F5C4B3", "#4A1B0C"),
+            ("sottotipo", "CM", "#F1EFE8", "#5F5E5A"),
         ]
         for cat, val, bg, txt in defaults:
             conn.execute(
@@ -791,29 +820,48 @@ def api_config_post():
 @app.route("/api/offerte", methods=["GET"])
 def api_offerte_list():
     conn = get_db()
-    sql = "SELECT * FROM offerte WHERE 1=1"
+    sql = """SELECT o.*,
+        obj.nome as oggetto_nome, obj.via as oggetto_via, obj.civico as oggetto_civico, obj.comune as oggetto_comune,
+        c.nome_studio as cliente_nome, c.tipo_cliente as cliente_tipo,
+        a.nome as agente_nome, a.cognome as agente_cognome, a.colore as agente_colore,
+        s.nome as segnalatore_nome
+        FROM offerte o
+        LEFT JOIN oggetti obj ON o.oggetto_id = obj.id
+        LEFT JOIN clienti c ON LOWER(o.nome_studio) = LOWER(c.nome_studio)
+        LEFT JOIN agenti a ON o.agente_id = a.id
+        LEFT JOIN segnalatori s ON o.segnalatore_id = s.id
+        WHERE 1=1"""
     params = []
     if request.args.get("agente_id"):
-        sql += " AND agente_id=?"
+        sql += " AND o.agente_id=?"
         params.append(int(request.args["agente_id"]))
     if request.args.get("stato"):
         stati = request.args["stato"].split(",")
-        sql += " AND stato IN (" + ",".join("?" * len(stati)) + ")"
+        sql += " AND o.stato IN (" + ",".join("?" * len(stati)) + ")"
         params.extend(stati)
     if request.args.get("template"):
-        sql += " AND template=?"
+        sql += " AND o.template=?"
         params.append(request.args["template"])
+    if request.args.get("macro_categoria"):
+        sql += " AND o.macro_categoria=?"
+        params.append(request.args["macro_categoria"])
+    if request.args.get("sottotipo"):
+        sql += " AND o.sottotipo=?"
+        params.append(request.args["sottotipo"])
+    if request.args.get("tipo_cliente"):
+        sql += " AND c.tipo_cliente=?"
+        params.append(request.args["tipo_cliente"])
     if request.args.get("q"):
         q = f"%{request.args['q']}%"
-        sql += " AND (nome_studio LIKE ? OR nome_condominio LIKE ? OR citta LIKE ? OR CAST(numero AS TEXT) LIKE ?)"
+        sql += " AND (o.nome_studio LIKE ? OR o.nome_condominio LIKE ? OR o.citta LIKE ? OR CAST(o.numero AS TEXT) LIKE ?)"
         params.extend([q, q, q, q])
     if request.args.get("dal"):
-        sql += " AND data_creazione>=?"
+        sql += " AND o.data_creazione>=?"
         params.append(request.args["dal"])
     if request.args.get("al"):
-        sql += " AND data_creazione<=?"
+        sql += " AND o.data_creazione<=?"
         params.append(request.args["al"] + " 23:59:59")
-    sql += " ORDER BY id DESC"
+    sql += " ORDER BY o.id DESC"
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -871,6 +919,9 @@ def api_offerte_update(oid):
         "canone_lettura", "modalita", "totale", "stato", "email_studio",
         "note", "path_docx", "path_pdf", "numero", "agente_id",
         "motivo_perdita", "note_perdita", "importo",
+        "macro_categoria", "sottotipo", "valore_commessa",
+        "is_gara_appalto", "valore_gara", "gara_id",
+        "segnalatore_id", "tipo_servizio",
     ]
     sets = []
     vals = []
@@ -2860,6 +2911,41 @@ def api_import_clienti():
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "data": {"imported": imported, "updated": updated, "skipped": skipped}})
+
+
+# ── Prompt 5: Dashboard KPI ──────────────────────────────────────────
+
+@app.route("/api/dashboard/kpi", methods=["GET"])
+def api_dashboard_kpi():
+    conn = get_db()
+    cats = ["installazione", "servizi", "cc_modus", "cu_unitron", "fornitura", "interventi"]
+    result = {}
+
+    for cat in cats:
+        if cat == "installazione":
+            for sub in ["CK", "CL"]:
+                key = sub
+                inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                val_normale = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva' AND (is_gara_appalto=0 OR is_gara_appalto IS NULL)", (sub,)).fetchone()[0]
+                val_gare = conn.execute("SELECT COALESCE(SUM(vg),0) FROM (SELECT MAX(valore_gara) as vg FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva' AND is_gara_appalto=1 AND gara_id IS NOT NULL GROUP BY gara_id)", (sub,)).fetchone()[0]
+                result[key] = {"inviate": inviate, "prese": prese, "valore_preso": val_normale + val_gare}
+        elif cat == "servizi":
+            inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato_versione='attiva'").fetchone()[0]
+            prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato='preso_lavoro' AND stato_versione='attiva'").fetchone()[0]
+            val = conn.execute("SELECT COALESCE(SUM(importo_servizio_annuo),0) FROM offerte WHERE macro_categoria='servizi' AND stato='preso_lavoro' AND stato_versione='attiva'").fetchone()[0]
+            sottotipi_attivi = [r[0] for r in conn.execute("SELECT DISTINCT sottotipo FROM offerte WHERE macro_categoria='servizi' AND sottotipo IS NOT NULL AND stato_versione='attiva'").fetchall()]
+            result["servizi"] = {"inviate": inviate, "prese": prese, "valore_annuo": val, "sottotipi": sottotipi_attivi}
+        else:
+            inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            val_normale = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva' AND (is_gara_appalto=0 OR is_gara_appalto IS NULL)", (cat,)).fetchone()[0]
+            val_gare = conn.execute("SELECT COALESCE(SUM(vg),0) FROM (SELECT MAX(valore_gara) as vg FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva' AND is_gara_appalto=1 AND gara_id IS NOT NULL GROUP BY gara_id)", (cat,)).fetchone()[0]
+            gare_inviate = conn.execute("SELECT COUNT(DISTINCT gara_id) FROM offerte WHERE macro_categoria=? AND is_gara_appalto=1 AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            result[cat] = {"inviate": inviate, "prese": prese, "valore_preso": val_normale + val_gare, "gare_inviate": gare_inviate}
+
+    conn.close()
+    return jsonify({"ok": True, "data": result})
 
 
 # ── Startup ──────────────────────────────────────────────────────────

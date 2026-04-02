@@ -125,15 +125,15 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","versione","data_creazione","nome_studio","nome_condominio","template","tipo_offerta","natura","agente_id","segnalatore","importo","importo_annuo","stato","giorni","azioni"];
-var COL_LABELS = {checkbox:"",numero:"N.",versione:"Ver.",data_creazione:"Data",nome_studio:"Studio / Cliente",nome_condominio:"Oggetto",template:"Template",tipo_offerta:"Tipo",natura:"Natura",agente_id:"Agente",segnalatore:"Segnal.",importo:"Importo",importo_annuo:"Canone/anno",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
+var ALL_COLS = ["checkbox","numero","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","azioni"];
+var COL_LABELS = {checkbox:"",numero:"N. Offerta",nome_studio:"Studio / Cliente",riferimento:"Riferimento",tipologia:"Tipologia",valore:"Valore",agente_id:"Agente",stato:"Stato",giorni:"Giorni",azioni:"Azioni"};
 
 function loadDashFilters() {
   try {
     var saved = localStorage.getItem("dashFilters");
     if (saved) return JSON.parse(saved);
   } catch (e) { /* */ }
-  return { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "" };
+  return { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "", macro_cat: "", tipo_cliente: "" };
 }
 
 function saveDashFilters() {
@@ -193,6 +193,16 @@ function dashFilterSort() {
   if (f.tipo_servizio) {
     list = list.filter(function(o) { return o.tipo_servizio === f.tipo_servizio; });
   }
+  if (f.macro_cat) {
+    if (f.macro_cat === "CK" || f.macro_cat === "CL") {
+      list = list.filter(function(o) { return o.sottotipo === f.macro_cat; });
+    } else {
+      list = list.filter(function(o) { return o.macro_categoria === f.macro_cat; });
+    }
+  }
+  if (f.tipo_cliente) {
+    list = list.filter(function(o) { return o.cliente_tipo === f.tipo_cliente; });
+  }
   if (f.q) {
     var q = f.q.toLowerCase();
     list = list.filter(function(o) {
@@ -238,17 +248,9 @@ function buildDashboard(c) {
 
   var h = "";
 
-  /* KPI */
-  h += '<div class="g3 mb12">';
-  h += '<div class="kpi"><div class="kpi-l">Totale Offerte</div><div class="kpi-v kv-blue">' + kpi.tot + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Lavori Presi</div><div class="kpi-v" style="color:#639922">' + kpi.prese + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Offerte Aperte</div><div class="kpi-v" style="color:#EF9F27">' + kpi.aperte + "</div></div>";
-  h += "</div>";
-  h += '<div class="g3 mb20">';
-  h += '<div class="kpi"><div class="kpi-l">Valore Preso Fornitura</div><div class="kpi-v" style="color:#639922">' + fmtEurDash(kpi.valFornitura) + "</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Valore Servizi Annui</div><div class="kpi-v" style="color:#854F0B">' + fmtEurDash(kpi.valServizi) + "/anno</div></div>";
-  h += '<div class="kpi"><div class="kpi-l">Tasso Conversione</div><div class="kpi-v kv-blue">' + kpi.tasso + (kpi.tasso !== "\u2014" ? "%" : "") + "</div></div>";
-  h += "</div>";
+  /* KPI — loaded async from /api/dashboard/kpi */
+  h += '<div id="kpi-cards" class="g3 mb12" style="min-height:80px"></div>';
+  h += '<div id="kpi-cards-2" class="g3 mb20" style="min-height:80px"></div>';
 
   /* Stato filter tabs */
   h += '<div class="fac gap4 mb12" id="stato-tabs">';
@@ -315,15 +317,14 @@ function buildDashboard(c) {
   h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
   h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
 
-  var sortable = { numero: 1, versione: 1, data_creazione: 1, nome_studio: 1, nome_condominio: 1, tipo_offerta: 1, natura: 1, importo: 1, importo_annuo: 1, stato: 1, giorni: 1 };
+  var sortable = { numero: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1, giorni: 1 };
   var colDefs = [
-    { key: "numero", w: "70px" }, { key: "versione", w: "40px" },
-    { key: "data_creazione", w: "85px" },
-    { key: "nome_studio", w: "150px" }, { key: "nome_condominio", w: "130px" },
-    { key: "template", w: "70px" }, { key: "tipo_offerta", w: "80px" },
-    { key: "natura", w: "55px" }, { key: "agente_id", w: "100px" }, { key: "segnalatore", w: "70px" },
-    { key: "importo", w: "85px", cls: "r" }, { key: "importo_annuo", w: "85px", cls: "r" },
-    { key: "stato", w: "110px" },
+    { key: "numero", w: "100px" },
+    { key: "nome_studio", w: "180px" }, { key: "riferimento", w: "200px" },
+    { key: "tipologia", w: "100px" },
+    { key: "valore", w: "110px", cls: "r" },
+    { key: "agente_id", w: "130px" },
+    { key: "stato", w: "140px" },
     { key: "giorni", w: "60px" }, { key: "azioni", w: "100px" }
   ];
   colDefs.forEach(function(cd) {
@@ -361,34 +362,64 @@ function buildDashboard(c) {
     h += '<tr data-oid="' + o.id + '" class="' + (isSel ? "row-selected" : "") + urgentCls + '">';
     h += '<td><input type="checkbox" class="row-sel" data-sel-id="' + o.id + '"' + (isSel ? " checked" : "") + " /></td>";
 
-    if (dashVisibleCols.indexOf("numero") >= 0) h += '<td class="mono">' + (o.numero || "\u2014") + "</td>";
-    if (dashVisibleCols.indexOf("versione") >= 0) h += "<td>" + esc(o.versione || "A") + "</td>";
-    if (dashVisibleCols.indexOf("data_creazione") >= 0) h += "<td>" + fmtData(o.data_creazione) + "</td>";
-    if (dashVisibleCols.indexOf("nome_studio") >= 0) h += '<td class="editable" data-field="nome_studio">' + esc(o.nome_studio || "") + "</td>";
-    if (dashVisibleCols.indexOf("nome_condominio") >= 0) h += '<td class="editable" data-field="nome_condominio">' + esc(o.nome_condominio || "") + "</td>";
-    if (dashVisibleCols.indexOf("template") >= 0) h += '<td class="editable" data-field="template">' + esc(o.template === "E40" ? "E-ITN40" : (o.template === "Q55" ? "Q5.5" : (o.template || ""))) + "</td>";
-    if (dashVisibleCols.indexOf("tipo_offerta") >= 0) {
-      var tipoMap = { fornitura: "Fornitura", installazione: "Installazione", servizio: "Servizio" };
-      var tipoLabel = tipoMap[o.tipo_offerta] || (o.is_accordo_quadro ? "Accordo Q." : (o.tipo_offerta || "\u2014"));
-      h += "<td>" + esc(tipoLabel) + "</td>";
+    /* N. Offerta (merged with versione) */
+    if (dashVisibleCols.indexOf("numero") >= 0) {
+      var numDisp = o.numero || "\u2014";
+      if (o.versione && o.versione !== "A") numDisp = numDisp + "-" + o.versione;
+      h += '<td class="mono">' + numDisp + "</td>";
     }
-    if (dashVisibleCols.indexOf("natura") >= 0) {
-      var natMap = { nuovo: "N", rinnovo: "R", subentro_diretto: "SD", subentro_intermediario: "SI" };
-      h += '<td><span class="badge b-gray" style="font-size:.6rem">' + (natMap[o.natura] || "\u2014") + "</span></td>";
+    /* Studio / Cliente */
+    if (dashVisibleCols.indexOf("nome_studio") >= 0) {
+      h += '<td class="editable" data-field="nome_studio"><div><strong>' + esc(o.nome_studio || "") + "</strong></div>";
+      if (o.cliente_tipo) h += '<div><span class="badge" style="font-size:.55rem;background:#E6F5FC;color:#0080B8">' + esc(o.cliente_tipo) + "</span></div>";
+      h += "</td>";
     }
-    if (dashVisibleCols.indexOf("agente_id") >= 0) h += '<td class="editable" data-field="agente_id">' + (o.agente_id ? agenteHtml(o.agente_id) : '<span style="color:var(--muted);font-size:.72rem">Non assegnato</span>') + "</td>";
-    if (dashVisibleCols.indexOf("segnalatore") >= 0) {
-      var segNome = o.segnalatore_nome || "";
-      if (segNome) {
-        var segIni = segNome.substring(0, 3).toUpperCase();
-        h += '<td><span class="badge b-gray" style="font-size:.58rem" title="' + esc(segNome) + '">' + segIni + "</span></td>";
+    /* Riferimento (oggetto via + comune) */
+    if (dashVisibleCols.indexOf("riferimento") >= 0) {
+      var rif = "";
+      if (o.oggetto_nome) rif += '<div style="font-weight:700;font-size:.78rem">' + esc(o.oggetto_nome) + "</div>";
+      var addr = (o.oggetto_via || o.via || "") + (o.oggetto_civico ? " " + o.oggetto_civico : "");
+      var com = o.oggetto_comune || o.citta || "";
+      if (addr || com) rif += '<div style="font-size:.72rem;color:var(--mid)">' + esc(addr + (com ? " \u2014 " + com : "")) + "</div>";
+      h += "<td>" + (rif || '<span style="color:var(--muted)">\u2014</span>') + "</td>";
+    }
+    /* Tipologia (sottotipo badge) */
+    if (dashVisibleCols.indexOf("tipologia") >= 0) {
+      var tipoBadge = "";
+      if (o.sottotipo) {
+        tipoBadge = '<span class="badge" style="font-size:.6rem">' + esc(o.sottotipo) + "</span>";
+      } else if (o.macro_categoria === "cc_modus") {
+        tipoBadge = '<span class="badge" style="font-size:.6rem;background:#FAEEDA;color:#854F0B">CC-MODUS</span>';
+      } else if (o.macro_categoria === "cu_unitron") {
+        tipoBadge = '<span class="badge" style="font-size:.6rem;background:#EEEDFE;color:#3C3489">UNITRON</span>';
+      } else if (o.tipo_offerta) {
+        tipoBadge = '<span class="badge b-gray" style="font-size:.6rem">' + esc(o.tipo_offerta) + "</span>";
+      }
+      if (o.is_gara_appalto) tipoBadge += ' <span class="badge" style="font-size:.5rem;background:#FCEBEB;color:#A32D2D">GARA</span>';
+      h += "<td>" + (tipoBadge || "\u2014") + "</td>";
+    }
+    /* Valore */
+    if (dashVisibleCols.indexOf("valore") >= 0) {
+      var valDisp = o.valore_commessa || o.importo || imp;
+      h += '<td class="num editable" data-field="valore_commessa">' + (valDisp ? fmtEurDash(valDisp) : '<span style="color:var(--muted)">\u2014</span>');
+      if (o.is_gara_appalto) h += '<div style="font-size:.6rem;color:var(--muted)">(gara)</div>';
+      h += "</td>";
+    }
+    /* Agente */
+    if (dashVisibleCols.indexOf("agente_id") >= 0) {
+      if (o.agente_id) {
+        h += "<td>" + agenteHtml(o.agente_id) + "</td>";
+      } else if (o.agente_nome) {
+        var agIni = ((o.agente_nome || " ")[0] + (o.agente_cognome || " ")[0]).toUpperCase();
+        var agCol = o.agente_colore || "#009FE3";
+        h += '<td><span class="agente-pill"><span class="agente-dot" style="background:' + agCol + '">' + agIni + "</span>" + esc(o.agente_nome) + "</span></td>";
       } else {
-        h += '<td style="color:var(--muted);font-size:.72rem">\u2014</td>';
+        h += '<td style="color:var(--muted);font-size:.72rem">Non assegnato</td>';
       }
     }
-    if (dashVisibleCols.indexOf("importo") >= 0) h += '<td class="num editable" data-field="importo">' + (imp ? fmtEurDash(imp) : '<span style="color:var(--muted)">\u2014</span>') + "</td>";
-    if (dashVisibleCols.indexOf("importo_annuo") >= 0) h += '<td class="num">' + (o.importo_servizio_annuo ? fmtEurDash(o.importo_servizio_annuo) : "\u2014") + "</td>";
+    /* Stato */
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
+    /* Giorni */
     if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
     if (dashVisibleCols.indexOf("azioni") >= 0) {
       h += '<td><div class="act-btns">';
@@ -402,38 +433,49 @@ function buildDashboard(c) {
     /* Expanded detail row */
     if (isExp) {
       var hasDocx = !!o.path_docx, hasPdf = !!o.path_pdf;
+      var natMap2 = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Dir.", subentro_intermediario: "Subentro Int." };
       h += '<tr class="row-expanded"><td colspan="' + (colDefs.length + 1) + '">';
       h += '<div class="expand-panel">';
       h += '<div style="display:flex;gap:20px;margin-bottom:12px">';
-      /* Left column */
+      /* Left */
       h += '<div style="flex:1">';
-      h += "<div style='margin-bottom:4px'><strong>" + esc(o.nome_studio || "") + "</strong></div>";
-      if (o.via || o.citta) {
-        h += "<div style='font-size:.82rem;color:var(--mid);margin-bottom:4px'>" + esc((o.via || "") + (o.citta ? ", " + o.citta : ""));
-        if (o.oggetto_id) h += ' <a href="/oggetti/' + o.oggetto_id + '" style="color:var(--blue);font-size:.72rem">[Apri oggetto]</a>';
+      h += "<div style='margin-bottom:4px'><strong>" + esc(o.nome_studio || "") + "</strong>";
+      if (o.cliente_tipo) h += ' <span class="badge" style="font-size:.55rem;background:#E6F5FC;color:#0080B8">' + esc(o.cliente_tipo) + "</span>";
+      h += "</div>";
+      if (o.agente_id || o.agente_nome) {
+        h += '<div style="font-size:.82rem;margin-bottom:4px">';
+        if (o.agente_id) h += agenteHtml(o.agente_id);
+        else if (o.agente_nome) h += esc(o.agente_nome + " " + (o.agente_cognome || ""));
+        if (o.agente_id) h += ' <a href="/agenti/' + o.agente_id + '" style="color:var(--blue);font-size:.72rem">[Dashboard]</a>';
         h += "</div>";
       }
-      if (o.agente_id) { var ag = getAgente(o.agente_id); if (ag) h += '<div style="font-size:.82rem;margin-bottom:4px">' + agenteHtml(o.agente_id) + ' <a href="/agenti/' + o.agente_id + '" style="color:var(--blue);font-size:.72rem">[Dashboard]</a></div>'; }
-      h += "<div style='font-size:.78rem;color:var(--muted)'>Creata: " + fmtData(o.data_creazione) + " | Template: " + esc(o.template || "") + " | Versione: " + esc(o.versione || "A") + "</div>";
+      var rifAddr = (o.oggetto_via || o.via || "") + (o.oggetto_civico ? " " + o.oggetto_civico : "");
+      var rifCom = o.oggetto_comune || o.citta || "";
+      if (rifAddr || rifCom) {
+        h += '<div style="font-size:.82rem;color:var(--mid);margin-bottom:4px">Rif: ' + esc(rifAddr + (rifCom ? " \u2014 " + rifCom : ""));
+        if (o.oggetto_id) h += ' <a href="/oggetti/' + o.oggetto_id + '" style="color:var(--blue);font-size:.72rem">[Apri]</a>';
+        h += "</div>";
+      }
+      h += '<div style="font-size:.75rem;color:var(--muted)">';
+      h += "Template: " + esc(o.template || "\u2014") + " | Tipologia: " + esc(o.macro_categoria || o.tipo_offerta || "\u2014") + "/" + esc(o.sottotipo || "\u2014");
+      h += " | Natura: " + esc(natMap2[o.natura] || o.natura || "\u2014") + " | Ver.: " + esc(o.versione || "A");
       h += "</div>";
-      /* Right column */
+      if (o.importo_servizio_annuo) h += '<div style="font-size:.78rem;margin-top:4px">Canone annuo: <strong>' + fmtEurDash(o.importo_servizio_annuo) + "/anno</strong></div>";
+      if (o.segnalatore_nome) h += '<div style="font-size:.78rem">Segnalatore: ' + esc(o.segnalatore_nome) + "</div>";
+      if (o.is_gara_appalto) h += '<div style="font-size:.78rem;color:#A32D2D">Gara appalto: ' + esc(o.gara_id || "") + " \u2014 " + fmtEurDash(o.valore_gara) + "</div>";
+      h += "</div>";
+      /* Right */
       h += '<div style="text-align:right">';
       h += '<div><span class="stato-badge ' + si.cls + '" style="font-size:.78rem">' + si.label + "</span></div>";
       if (gg !== null) h += "<div style='margin-top:4px'>" + ggHtml + "</div>";
-      var natMap2 = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Dir.", subentro_intermediario: "Subentro Int." };
-      if (o.natura) h += '<div style="margin-top:4px"><span class="badge b-gray" style="font-size:.6rem">' + (natMap2[o.natura] || "") + "</span></div>";
+      h += '<div style="margin-top:4px;font-size:.72rem;color:var(--muted)">' + fmtData(o.data_creazione) + "</div>";
       h += "</div></div>";
-      /* Links */
-      h += '<div class="fac gap8 mb12">';
-      if (o.nome_studio) h += '<a href="/clienti/0" class="btn btn-sm btn-ghost" data-client-link="' + esc(o.nome_studio) + '"><i data-lucide="user" style="width:12px;height:12px"></i> Scheda cliente</a>';
-      if (o.oggetto_id) h += '<a href="/oggetti/' + o.oggetto_id + '" class="btn btn-sm btn-ghost"><i data-lucide="building-2" style="width:12px;height:12px"></i> Pagina oggetto</a>';
-      h += "</div>";
       /* Actions */
       h += '<div class="fac gap6" style="flex-wrap:wrap">';
       h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
       if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
       if (hasPdf) h += '<button class="btn btn-sm btn-pdf" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
-      h += '<button class="btn btn-sm btn-sec" data-ver-id="' + o.id + '"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Aggiorna offerta</button>';
+      h += '<button class="btn btn-sm btn-sec" data-ver-id="' + o.id + '"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Aggiorna</button>';
       h += '<button class="btn btn-sm btn-sec" data-dup-id="' + o.id + '"><i data-lucide="copy" style="width:12px;height:12px"></i> Duplica</button>';
       if (o.oggetto_id) h += '<button class="btn btn-sm btn-sec" data-fc-oggetto="' + o.oggetto_id + '"><i data-lucide="euro" style="width:12px;height:12px"></i> Foglio Costi</button>';
       h += '<button class="btn btn-sm btn-sec" data-mail-id="' + o.id + '"><i data-lucide="mail" style="width:12px;height:12px"></i> Email</button>';
@@ -459,6 +501,58 @@ function buildDashboard(c) {
   c.innerHTML = h;
   icons();
   attachDashEvents(c);
+  loadKpiCards();
+}
+
+function loadKpiCards() {
+  api("GET", "/api/dashboard/kpi").then(function(res) {
+    if (!res.ok) return;
+    var d = res.data;
+    var kpiDefs = [
+      { key: "CK", label: "CK — Sostituzione Ripartitori", icon: "thermometer", color: "#009FE3", data: d.CK },
+      { key: "CL", label: "CL — Commesse Lavori", icon: "wrench", color: "#EF9F27", data: d.CL },
+      { key: "servizi", label: "Servizi", icon: "repeat", color: "#639922", data: d.servizi }
+    ];
+    var kpiDefs2 = [
+      { key: "cc_modus", label: "CC-Modus", icon: "layers", color: "#854F0B", data: d.cc_modus },
+      { key: "cu_unitron", label: "CU-Unitron", icon: "radio", color: "#534AB7", data: d.cu_unitron },
+      { key: "fornitura", label: "Fornitura Materiale", icon: "package", color: "#993C1D", data: d.fornitura }
+    ];
+
+    function renderKpiCard(def) {
+      var k = def.data || { inviate: 0, prese: 0, valore_preso: 0, valore_annuo: 0 };
+      var val = k.valore_annuo ? fmtEurDash(k.valore_annuo) + "/anno" : fmtEurDash(k.valore_preso || 0);
+      var tasso = k.inviate > 0 ? Math.round(k.prese / k.inviate * 100) : 0;
+      var active = dashFilters.macro_cat === def.key;
+      return '<div class="kpi" style="cursor:pointer;border-left:3px solid ' + def.color + (active ? ";outline:2px solid " + def.color : "") + '" data-kpi-cat="' + def.key + '">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><i data-lucide="' + def.icon + '" style="width:16px;height:16px;color:' + def.color + '"></i><span style="font-size:.72rem;font-weight:700;color:' + def.color + '">' + def.label + '</span></div>' +
+        '<div style="display:flex;gap:12px;font-size:.78rem;margin-bottom:4px"><span>Inviate: <strong>' + k.inviate + '</strong></span><span>Prese: <strong style="color:#639922">' + k.prese + '</strong></span></div>' +
+        '<div style="font-size:.85rem;font-weight:800;color:' + def.color + '">' + val + '</div>' +
+        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + tasso + '%;background:' + def.color + ';border-radius:2px"></div></div>' +
+        "</div>";
+    }
+
+    var h1 = "";
+    kpiDefs.forEach(function(def) { h1 += renderKpiCard(def); });
+    var el1 = document.getElementById("kpi-cards");
+    if (el1) { el1.innerHTML = h1; icons(); }
+
+    var h2 = "";
+    kpiDefs2.forEach(function(def) { h2 += renderKpiCard(def); });
+    var el2 = document.getElementById("kpi-cards-2");
+    if (el2) { el2.innerHTML = h2; icons(); }
+
+    /* KPI card click to filter */
+    document.querySelectorAll("[data-kpi-cat]").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var cat = this.getAttribute("data-kpi-cat");
+        if (dashFilters.macro_cat === cat) dashFilters.macro_cat = "";
+        else dashFilters.macro_cat = cat;
+        saveDashFilters();
+        buildDashboard(document.getElementById("content"));
+      });
+    });
+  });
 }
 
 /* ─── Dashboard events ─── */
@@ -510,7 +604,7 @@ function attachDashEvents(c) {
   if (fAl) fAl.addEventListener("change", function() { dashFilters.al = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
   var fReset = document.getElementById("f-reset");
   if (fReset) fReset.addEventListener("click", function() {
-    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "" };
+    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "", macro_cat: "", tipo_cliente: "" };
     dashSort = { col: null, dir: null };
     dashPage = 0;
     localStorage.removeItem("dashFilters");
