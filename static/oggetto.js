@@ -42,16 +42,29 @@ var STATI_MAP = {
 var NATURA_MAP = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Diretto", subentro_intermediario: "Subentro Intermediario" };
 
 function loadPage() {
-  Promise.all([
-    api("GET", "/api/oggetti/" + OGGETTO_ID),
-    api("GET", "/api/fogli-costi/by-oggetto/" + OGGETTO_ID)
-  ]).then(function(results) {
-    if (!results[0].ok) { document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">' + (results[0].error || "Errore") + "</div>"; return; }
-    objData = results[0].data;
-    fcData = results[1].data || null;
-    renderPage();
+  if (!OGGETTO_ID) {
+    document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">ID oggetto non valido</div>';
+    return;
+  }
+  var objUrl = "/api/oggetti/" + OGGETTO_ID;
+  var fcUrl = "/api/fogli-costi/by-oggetto/" + OGGETTO_ID;
+
+  api("GET", objUrl).then(function(result) {
+    if (!result.ok) {
+      document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">' + (result.error || "Oggetto non trovato") + "</div>";
+      return;
+    }
+    objData = result.data;
+    /* Load foglio costi separately — don't block if it fails */
+    api("GET", fcUrl).then(function(fcResult) {
+      fcData = (fcResult && fcResult.data) ? fcResult.data : null;
+    }).catch(function() {
+      fcData = null;
+    }).then(function() {
+      renderPage();
+    });
   }).catch(function(e) {
-    document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">Errore: ' + e.message + "</div>";
+    document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">Errore caricamento: ' + e.message + "</div>";
   });
 }
 
