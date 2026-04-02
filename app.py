@@ -1224,8 +1224,8 @@ def api_clienti_create():
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur = conn.execute(
         """INSERT INTO clienti
-           (nome_studio, via, cap, citta, email, telefono, referente, note, data_inserimento)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
+           (nome_studio, via, cap, citta, email, telefono, referente, tipo_cliente, note, data_inserimento)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
         (
             nome,
             data.get("via", ""),
@@ -1234,6 +1234,7 @@ def api_clienti_create():
             data.get("email", ""),
             data.get("telefono", ""),
             data.get("referente", ""),
+            data.get("tipo_cliente", "Amministratore"),
             data.get("note", ""),
             now,
         ),

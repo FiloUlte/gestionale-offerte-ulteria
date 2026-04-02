@@ -1741,6 +1741,7 @@ function showNewClientForm() {
     '<div class="form-field"><label>Citta</label><input class="inp" id="nc-citta" /></div>' +
     '<div class="form-field"><label>Email</label><input class="inp" id="nc-email" /></div>' +
     '<div class="form-field"><label>Telefono</label><input class="inp" id="nc-tel" /></div>' +
+    '<div class="form-field"><label>Tipo Cliente</label><select class="inp" id="nc-tipo"><option value="Amministratore">Amministratore</option><option value="Gestore">Gestore</option><option value="Costruttore">Costruttore</option><option value="Progettista">Progettista</option><option value="Condomino">Condomino</option><option value="Rivenditore">Rivenditore</option></select></div>' +
     '<div class="form-field full"><label>Note</label><textarea class="inp" id="nc-note" rows="2"></textarea></div>' +
     '</div><div class="fac gap8 mt12"><button class="btn btn-primary" id="save-client">Salva</button><button class="btn btn-sec" id="cancel-client">Annulla</button></div></div>';
   icons();
@@ -1753,7 +1754,8 @@ function showNewClientForm() {
       nome_studio: nome, referente: document.getElementById("nc-ref").value,
       via: document.getElementById("nc-via").value, cap: document.getElementById("nc-cap").value,
       citta: document.getElementById("nc-citta").value, email: document.getElementById("nc-email").value,
-      telefono: document.getElementById("nc-tel").value, note: document.getElementById("nc-note").value
+      telefono: document.getElementById("nc-tel").value, tipo_cliente: document.getElementById("nc-tipo").value,
+      note: document.getElementById("nc-note").value
     }).then(function(res) {
       toast("Cliente salvato", "ok");
       renderClienti(document.getElementById("content"));

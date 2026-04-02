@@ -46,25 +46,30 @@ function loadPage() {
     document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">ID oggetto non valido</div>';
     return;
   }
-  var objUrl = "/api/oggetti/" + OGGETTO_ID;
-  var fcUrl = "/api/fogli-costi/by-oggetto/" + OGGETTO_ID;
 
-  api("GET", objUrl).then(function(result) {
+  fetch("/api/oggetti/" + OGGETTO_ID).then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(function(result) {
     if (!result.ok) {
       document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">' + (result.error || "Oggetto non trovato") + "</div>";
       return;
     }
     objData = result.data;
-    /* Load foglio costi separately — don't block if it fails */
-    api("GET", fcUrl).then(function(fcResult) {
-      fcData = (fcResult && fcResult.data) ? fcResult.data : null;
+
+    /* Load foglio costi separately */
+    return fetch("/api/fogli-costi/by-oggetto/" + OGGETTO_ID).then(function(r2) {
+      if (!r2.ok) return null;
+      return r2.json();
+    }).then(function(fcResult) {
+      fcData = (fcResult && fcResult.ok && fcResult.data) ? fcResult.data : null;
     }).catch(function() {
       fcData = null;
-    }).then(function() {
-      renderPage();
     });
+  }).then(function() {
+    if (objData) renderPage();
   }).catch(function(e) {
-    document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">Errore caricamento: ' + e.message + "</div>";
+    document.getElementById("obj-page").innerHTML = '<div class="alert a-warn">Errore: ' + (e.message || "sconosciuto") + "</div>";
   });
 }
 
