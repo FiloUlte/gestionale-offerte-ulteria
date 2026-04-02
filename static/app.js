@@ -1246,48 +1246,58 @@ function showNuovaOffertaModal(cont) {
       versione: "A"
     };
 
-    /* Save client if needed */
-    if (document.getElementById("no-save-cli").checked) {
-      api("POST", "/api/clienti", {
+    /* Step 1: Save client first (wait for response) */
+    var saveCli = document.getElementById("no-save-cli").checked;
+    var creaOggetto = document.getElementById("no-crea-oggetto").checked;
+    var rifVia = document.getElementById("no-rif-via").value;
+    var rifComune = document.getElementById("no-rif-comune").value;
+
+    var clientePromise;
+    if (saveCli && studio) {
+      clientePromise = api("POST", "/api/clienti", {
         nome_studio: studio,
         via: document.getElementById("no-cli-via").value,
         citta: document.getElementById("no-cli-citta").value,
         email: document.getElementById("no-cli-email").value,
         telefono: document.getElementById("no-cli-tel").value
       });
-    }
-
-    /* Create oggetto if toggle checked */
-    var creaOggetto = document.getElementById("no-crea-oggetto").checked;
-    var rifVia = document.getElementById("no-rif-via").value;
-    var rifComune = document.getElementById("no-rif-comune").value;
-
-    if (creaOggetto && rifVia && rifComune) {
-      api("POST", "/api/oggetti", {
-        cliente_id: null,
-        nome: document.getElementById("no-rif-nome").value,
-        via: rifVia,
-        civico: document.getElementById("no-rif-civico").value,
-        comune: rifComune,
-        provincia: document.getElementById("no-rif-prov").value,
-        tipo_oggetto: document.getElementById("no-rif-tipo").value,
-        n_unita: parseInt(document.getElementById("no-n-unita").value) || null,
-        agente_id: payload.agente_id
-      }).then(function(res) {
-        if (res.ok && res.data) payload.oggetto_id = res.data.id;
-        return api("POST", "/api/offerte", payload);
-      }).then(function() {
-        closeModal();
-        toast("Offerta creata con oggetto", "ok");
-        renderDashboard(cont);
-      });
     } else {
-      api("POST", "/api/offerte", payload).then(function() {
-        closeModal();
-        toast("Offerta creata", "ok");
-        renderDashboard(cont);
-      });
+      clientePromise = Promise.resolve(null);
     }
+
+    clientePromise.then(function(cliRes) {
+      var clienteId = null;
+      if (cliRes && cliRes.id) clienteId = cliRes.id;
+      else if (cliRes && cliRes.data && cliRes.data.id) clienteId = cliRes.data.id;
+
+      /* Step 2: Create oggetto if needed */
+      if (creaOggetto && rifVia && rifComune) {
+        return api("POST", "/api/oggetti", {
+          cliente_id: clienteId,
+          nome: document.getElementById("no-rif-nome").value,
+          via: rifVia,
+          civico: document.getElementById("no-rif-civico").value,
+          comune: rifComune,
+          provincia: document.getElementById("no-rif-prov").value,
+          tipo_oggetto: document.getElementById("no-rif-tipo").value,
+          n_unita: parseInt(document.getElementById("no-n-unita").value) || null,
+          agente_id: payload.agente_id
+        }).then(function(objRes) {
+          if (objRes && objRes.ok && objRes.data) payload.oggetto_id = objRes.data.id;
+          return { clienteId: clienteId };
+        });
+      }
+      return { clienteId: clienteId };
+    }).then(function() {
+      /* Step 3: Create offerta */
+      return api("POST", "/api/offerte", payload);
+    }).then(function() {
+      closeModal();
+      toast("Offerta creata", "ok");
+      renderDashboard(cont);
+    }).catch(function(e) {
+      toast("Errore: " + (e.message || "sconosciuto"), "error");
+    });
   });
 }
 
@@ -1744,7 +1754,12 @@ function showNewClientForm() {
       via: document.getElementById("nc-via").value, cap: document.getElementById("nc-cap").value,
       citta: document.getElementById("nc-citta").value, email: document.getElementById("nc-email").value,
       telefono: document.getElementById("nc-tel").value, note: document.getElementById("nc-note").value
-    }).then(function() { renderClienti(document.getElementById("content")); });
+    }).then(function(res) {
+      toast("Cliente salvato", "ok");
+      renderClienti(document.getElementById("content"));
+    }).catch(function(e) {
+      toast("Errore: " + e.message, "error");
+    });
   });
 }
 
