@@ -170,7 +170,7 @@ function renderTimelineTab() {
   return h;
 }
 
-/* ─── FOGLIO COSTI TAB ─── */
+/* ─── FOGLIO COSTI TAB (Prompt 3B — Unificato) ─── */
 function renderFoglioCostiTab() {
   if (!fcData || !fcData.foglio) {
     return '<div class="card" style="text-align:center;padding:40px"><div style="color:var(--muted);margin-bottom:12px"><i data-lucide="euro" style="width:32px;height:32px"></i></div>' +
@@ -184,137 +184,233 @@ function renderFoglioCostiTab() {
   var prodotti = fcData.prodotti || [];
   var prezziInst = fcData.prezzi_installazione || [];
   var extras = fcData.extras || [];
+  var scenario = fc.scenario || "valvole";
+  var nUnita = (objData.oggetto.n_unita || 0);
+  var nRad = fc.n_radiatori || 0;
 
-  var costoApp = 0;
   var h = '<div style="margin-bottom:8px;font-size:.72rem;color:var(--muted)" id="fc-status">Salvato</div>';
-  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><h3 style="margin:0;font-size:1.1rem;font-weight:800">Foglio Costi</h3><span class="badge" style="background:#FCEBEB;color:#A32D2D;font-size:.6rem">Riservato</span></div>';
 
-  /* BLOCCO 1: Costi */
-  h += '<div class="card mb16" style="border-left:3px solid #ef4444">';
-  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 12px;color:#A32D2D"><i data-lucide="trending-down" style="width:16px;height:16px;vertical-align:-2px"></i> Costi</h3>';
+  /* HEADER */
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><h3 style="margin:0;font-size:1.1rem;font-weight:800">Foglio Costi Interno</h3><span class="badge" style="background:#FCEBEB;color:#A32D2D;font-size:.6rem">Riservato</span></div>';
+  h += '<div style="font-size:.78rem;color:var(--muted);margin-bottom:14px">Documento non visibile al cliente</div>';
 
-  /* Apparecchi */
-  h += '<div class="sec-ttl">Costi Apparecchi</div>';
-  h += '<table class="tbl"><thead><tr><th>Apparecchio</th><th>Q.ta</th><th>Prezzo Acq.</th><th>Totale</th></tr></thead><tbody>';
-  righe.forEach(function(r) {
-    if (r.tipo_riga !== "fornitura") return;
-    var desc = r.descrizione || "";
-    var pAcq = 0;
-    prodotti.forEach(function(p) { if (desc.indexOf(p.modello) >= 0 || desc.indexOf(p.nome) >= 0) pAcq = p.prezzo_acquisto || 0; });
-    var tot = pAcq * (r.quantita || 0);
-    costoApp += tot;
-    h += "<tr><td>" + esc(desc) + "</td><td>" + (r.quantita || 0) + "</td>";
-    h += "<td>" + (pAcq ? fmtEur(pAcq) : '<span style="color:#dc2626;font-size:.72rem">Non in listino</span>') + "</td>";
-    h += "<td><strong>" + fmtEur(tot) + "</strong></td></tr>";
-  });
-  if (!righe.filter(function(r) { return r.tipo_riga === "fornitura"; }).length) {
-    h += '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:12px">Nessun apparecchio</td></tr>';
+  /* Scenario toggle */
+  h += '<div class="fac gap8 mb12" style="padding:10px 14px;background:var(--bg);border-radius:8px">';
+  h += '<span style="font-size:.78rem;font-weight:700;color:var(--mid)">Scenario:</span>';
+  h += '<button class="pill-btn' + (scenario === "valvole" ? " on" : "") + '" data-fc-scenario="valvole" style="font-size:.78rem">Valvole / Ripartitori</button>';
+  h += '<button class="pill-btn' + (scenario === "commessa_lavori" ? " on" : "") + '" data-fc-scenario="commessa_lavori" style="font-size:.78rem">Commessa Lavori (CL)</button>';
+  if (scenario === "commessa_lavori") {
+    h += '<span style="margin-left:auto;font-size:.78rem">Squadra idraulica: </span>';
+    h += '<input class="inp" value="' + esc(fc.installatore_idraulico || "") + '" id="fc-installatore" style="width:180px;padding:3px 8px;font-size:.78rem" />';
   }
-  h += '</tbody></table>';
-
-  /* Installazione */
-  h += '<div class="sec-ttl mt12">Costi Installazione</div>';
-  h += '<table class="tbl"><thead><tr><th>Tipo</th><th>Q.ta</th><th>Base</th><th>Extra</th><th>Totale</th></tr></thead><tbody>';
-  var costoInst = fc.costo_installazione_idraulica || 0;
-  prezziInst.forEach(function(pi) {
-    h += "<tr><td>" + esc(pi.descrizione) + "</td><td>-</td><td>" + fmtEur(pi.prezzo_base) + "</td>";
-    h += '<td><input class="inp" type="number" step="0.01" value="0" style="width:80px;padding:3px 6px;font-size:.78rem" data-fc-field="inst_extra_' + pi.tipo + '" /></td>';
-    h += "<td>" + fmtEur(pi.prezzo_base) + "</td></tr>";
-  });
-  h += "</tbody></table>";
-
-  /* Materiali Extra */
-  h += '<div class="sec-ttl mt12">Materiali Extra</div>';
-  h += '<div id="fc-extras">';
-  extras.forEach(function(ex) {
-    h += '<div class="fac gap8 mb8" data-extra-id="' + ex.id + '">';
-    h += '<input class="inp" value="' + esc(ex.descrizione) + '" style="flex:1;padding:4px 8px;font-size:.78rem" />';
-    h += '<input class="inp" type="number" value="' + (ex.quantita || 1) + '" style="width:60px;padding:4px 8px;font-size:.78rem" />';
-    h += '<input class="inp" type="number" step="0.01" value="' + (ex.prezzo_unitario || 0) + '" style="width:80px;padding:4px 8px;font-size:.78rem" />';
-    h += '<span style="font-weight:700;font-size:.82rem;min-width:70px;text-align:right">' + fmtEur(ex.totale || 0) + "</span>";
-    h += '<button class="btn btn-ghost btn-sm" data-del-extra="' + ex.id + '" style="color:var(--muted)"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></div>';
-  });
-  h += '</div><button class="btn btn-sm btn-sec mt8" id="btn-add-extra"><i data-lucide="plus" style="width:12px;height:12px"></i> Aggiungi materiale</button>';
-
-  /* Totale Costi */
-  var totCosti = costoApp + (fc.costo_installazione_idraulica || 0) + (fc.costo_installazione_elettrica || 0) + (fc.costo_concentratori || 0) + (fc.costo_materiali_extra || 0);
-  h += '<div style="background:#0D1F35;color:#fff;padding:10px 14px;border-radius:8px;margin-top:12px;display:flex;justify-content:space-between;font-weight:700">';
-  h += '<span>Totale Costi</span><span>' + fmtEur(totCosti) + "</span></div>";
   h += "</div>";
 
-  /* BLOCCO 2: Moltiplicatore K */
-  var kVal = fc.k_moltiplicatore || 1.0;
-  h += '<div class="card mb16" style="background:var(--bg)">';
-  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px"><i data-lucide="x-circle" style="width:16px;height:16px;vertical-align:-2px"></i> Moltiplicatore K</h3>';
-  h += '<div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Il moltiplicatore K copre costi fissi, overhead e margine operativo.</div>';
-  h += '<div class="fac gap12"><input class="inp" type="number" step="0.05" min="1" max="3" value="' + kVal + '" id="fc-k" style="width:80px" />';
-  h += '<input type="range" min="1" max="3" step="0.05" value="' + kVal + '" id="fc-k-slider" style="flex:1" /></div>';
-  h += '<div class="fac gap16 mt8" style="font-size:.85rem">';
-  h += '<div>Costi base: ' + fmtEur(totCosti) + "</div>";
-  h += '<div><strong>Costi x K: ' + fmtEur(totCosti * kVal) + "</strong></div>";
-  h += '<div style="color:#639922">+' + fmtEur(totCosti * kVal - totCosti) + "</div></div>";
-  h += "</div>";
-
-  /* BLOCCO 3: Ricavi */
-  var ricForn = fc.ricavo_fornitura || 0;
-  var ricServ = fc.ricavo_servizio_annuo || 0;
-  h += '<div class="card mb16" style="border-left:3px solid #639922">';
-  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 12px;color:#639922"><i data-lucide="trending-up" style="width:16px;height:16px;vertical-align:-2px"></i> Ricavi</h3>';
-  h += '<table class="tbl"><tbody>';
-  h += '<tr><td>Fornitura/Installazione</td><td class="num"><strong>' + fmtEur(ricForn) + "</strong></td></tr>";
-  h += '<tr><td>Canone lettura annuo</td><td class="num">' + fmtEur(ricServ) + "/anno</td></tr>";
-  h += '<tr><td><strong>Totale ricavo anno 1</strong></td><td class="num"><strong>' + fmtEur(ricForn + ricServ) + "</strong></td></tr>";
-  h += '<tr><td>Totale ricavo anno 5</td><td class="num">' + fmtEur(ricForn + ricServ * 5) + "</td></tr>";
-  h += "</tbody></table></div>";
-
-  /* BLOCCO 4: Margine */
-  var costiK = totCosti * kVal;
-  var margineLordo = ricForn - costiK;
-  var marginePct = ricForn > 0 ? (margineLordo / ricForn * 100) : 0;
-  var borderCol = margineLordo >= 0 ? "#639922" : "#A32D2D";
-  var barCol = marginePct > 30 ? "#639922" : (marginePct > 15 ? "#f59e0b" : "#ef4444");
-
-  h += '<div class="card mb16" style="border-left:3px solid ' + borderCol + '">';
-  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 12px"><i data-lucide="percent" style="width:16px;height:16px;vertical-align:-2px"></i> Margine</h3>';
-  h += '<div style="font-size:.85rem;margin-bottom:4px">Ricavo fornitura: ' + fmtEur(ricForn) + "</div>";
-  h += '<div style="font-size:.85rem;margin-bottom:4px">Costi x K: -' + fmtEur(costiK) + "</div>";
-  h += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px">';
-  h += '<div style="font-size:1rem;font-weight:800;color:' + borderCol + '">Margine lordo: ' + fmtEur(margineLordo) + " (" + marginePct.toFixed(1) + "%)</div>";
-  h += '<div style="height:8px;background:var(--border);border-radius:4px;margin-top:8px;overflow:hidden"><div style="height:100%;width:' + Math.min(Math.max(marginePct, 0), 100) + "%;background:" + barCol + ';border-radius:4px"></div></div>';
+  /* SEZIONE 0: Dati Base */
+  h += '<div class="card mb12" style="background:#f8fafc">';
+  h += '<div style="display:flex;gap:16px;font-size:.82rem">';
+  h += '<div><strong>Condominio:</strong> ' + esc(objData.oggetto.via || "") + " " + esc(objData.oggetto.comune || "") + "</div>";
+  h += '<div><strong>N. Unita:</strong> ' + nUnita + "</div>";
+  h += '<div><strong>N. Radiatori:</strong> <input class="inp" type="number" value="' + nRad + '" id="fc-n-rad" style="width:60px;padding:2px 6px;font-size:.78rem;display:inline" /></div>';
   h += "</div></div>";
 
-  /* BLOCCO 5: Provvigioni */
+  /* SEZIONE 1A: Costi Apparecchi (Valvole) */
+  if (scenario === "valvole") {
+    h += '<div class="card mb16" style="border-left:3px solid #ef4444">';
+    h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 12px;color:#A32D2D"><i data-lucide="trending-down" style="width:16px;height:16px;vertical-align:-2px"></i> Costi Apparecchi</h3>';
+    h += '<table class="tbl"><thead><tr><th>Voce</th><th>Costo cad</th><th>Q.ta</th><th>Totale</th></tr></thead><tbody>';
+    h += '<tr><td>Kit Valvola</td><td><input class="inp" type="number" step="0.01" value="' + (fc.costo_kit_valvola || 0) + '" data-fc-val="costo_kit_valvola" style="width:80px;padding:2px 6px;font-size:.78rem" /></td><td>' + nRad + '</td><td><strong>' + fmtEur((fc.costo_kit_valvola || 0) * nRad) + "</strong></td></tr>";
+    h += '<tr><td>Montaggio Valvola</td><td><input class="inp" type="number" step="0.01" value="' + (fc.costo_montaggio_valvola || 0) + '" data-fc-val="costo_montaggio_valvola" style="width:80px;padding:2px 6px;font-size:.78rem" /></td><td>' + nRad + '</td><td><strong>' + fmtEur((fc.costo_montaggio_valvola || 0) * nRad) + "</strong></td></tr>";
+    var ripDesc = "";
+    righe.forEach(function(r) { if (r.tipo_riga === "fornitura") ripDesc = r.descrizione || "Ripartitore"; });
+    var ripPrezzo = fc.costo_apparecchio_ripartitore || 0;
+    if (!ripPrezzo) { prodotti.forEach(function(p) { if (ripDesc.indexOf(p.modello || "") >= 0) ripPrezzo = p.prezzo_acquisto || 0; }); }
+    h += '<tr><td>' + esc(ripDesc || "Ripartitore") + '</td><td><input class="inp" type="number" step="0.01" value="' + ripPrezzo + '" data-fc-val="costo_apparecchio_ripartitore" style="width:80px;padding:2px 6px;font-size:.78rem" /></td><td>' + nRad + '</td><td><strong>' + fmtEur(ripPrezzo * nRad) + "</strong></td></tr>";
+    h += '<tr><td>Costi extra trasporto</td><td colspan="2"></td><td><input class="inp" type="number" step="0.01" value="' + (fc.costo_extra_trasporto || 0) + '" data-fc-val="costo_extra_trasporto" style="width:80px;padding:2px 6px;font-size:.78rem" /></td></tr>';
+    var totA = ((fc.costo_kit_valvola || 0) + (fc.costo_montaggio_valvola || 0) + ripPrezzo) * nRad + (fc.costo_extra_trasporto || 0);
+    h += '</tbody></table>';
+    h += '<div style="background:#0D1F35;color:#fff;padding:8px 14px;border-radius:6px;margin-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:.85rem"><span>Totale Costi Apparecchi</span><span>' + fmtEur(totA) + "</span></div>";
+    h += "</div>";
+  }
+
+  /* SEZIONE 1B: Contabilizzazione (CL) */
+  if (scenario === "commessa_lavori") {
+    h += '<div class="card mb16" style="border-left:3px solid #ef4444">';
+    h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px;color:#A32D2D"><i data-lucide="trending-down" style="width:16px;height:16px;vertical-align:-2px"></i> Contabilizzazione</h3>';
+    h += '<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Seleziona i contatori presenti nel modulo utenza</div>';
+    h += '<table class="tbl" style="font-size:.78rem"><thead><tr><th>Tipo</th><th>SI</th><th>Trasm.</th><th>DN</th><th>Costo cad</th><th>Tot.</th></tr></thead><tbody>';
+    var contTypes = [
+      { key: "riscaldamento", label: "Solo riscaldamento", hasTr: true, hasDn: true },
+      { key: "hc", label: "HC (risc./raffr.)", hasTr: true, hasDn: true },
+      { key: "raffrescamento", label: "Raffrescamento", hasTr: true, hasDn: true },
+      { key: "acqua_calda", label: "Acqua calda", hasTr: true, hasDn: true },
+      { key: "acqua_fredda", label: "Acqua fredda", hasTr: true, hasDn: true },
+      { key: "acqua_ricircolo", label: "Acqua ricircolo", hasTr: false, hasDn: false },
+      { key: "acqua_duale", label: "Acqua duale", hasTr: false, hasDn: false }
+    ];
+    contTypes.forEach(function(ct) {
+      var presente = fc["cont_" + ct.key] || 0;
+      var costo = fc["cont_" + ct.key + "_costo"] || 0;
+      var tot = costo * nUnita;
+      h += '<tr style="' + (!presente ? "opacity:.4" : "") + '">';
+      h += "<td>" + ct.label + "</td>";
+      h += '<td><input type="checkbox" data-fc-cont="' + ct.key + '"' + (presente ? " checked" : "") + " /></td>";
+      if (ct.hasTr) {
+        h += '<td><select class="inp" style="width:70px;padding:1px 4px;font-size:.72rem" data-fc-cont-tr="' + ct.key + '"><option value="mbus"' + (fc["cont_" + ct.key + "_trasmissione"] === "mbus" ? " selected" : "") + ">MBUS</option><option value="imp"' + (fc["cont_" + ct.key + "_trasmissione"] === "imp" ? " selected" : "") + ">IMP</option></select></td>';
+        h += '<td><select class="inp" style="width:50px;padding:1px 4px;font-size:.72rem" data-fc-cont-dn="' + ct.key + '"><option value="15">15</option><option value="20"' + (fc["cont_" + ct.key + "_dn"] == 20 ? " selected" : "") + ">20</option><option value="25"' + (fc["cont_" + ct.key + "_dn"] == 25 ? " selected" : "") + ">25</option><option value="32"' + (fc["cont_" + ct.key + "_dn"] == 32 ? " selected" : "") + ">32</option></select></td>';
+      } else {
+        h += "<td>\u2014</td><td>\u2014</td>";
+      }
+      h += '<td><input class="inp" type="number" step="0.01" value="' + costo + '" style="width:70px;padding:1px 4px;font-size:.72rem" data-fc-cont-costo="' + ct.key + '" /></td>';
+      h += "<td><strong>" + fmtEur(tot) + "</strong></td></tr>";
+    });
+    h += "</tbody></table></div>";
+
+    /* SEZIONE 2B: Valvole e Componenti */
+    h += '<div class="card mb16" style="border-left:3px solid #f59e0b">';
+    h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px;color:#854F0B"><i data-lucide="settings" style="width:16px;height:16px;vertical-align:-2px"></i> Valvole e Componenti</h3>';
+    h += '<table class="tbl" style="font-size:.78rem"><thead><tr><th>Voce</th><th>Costo cad</th><th>Q.ta</th><th>Totale</th></tr></thead><tbody>';
+    var compFields = [
+      { key: "costo_valvola_zona", label: "Valvola zona", qty: nUnita },
+      { key: "costo_attuatore", label: "Attuatore", qty: nUnita },
+      { key: "costo_produzione_modulo", label: "Produzione modulo", qty: nUnita },
+      { key: "costo_opere_idrauliche_extra", label: "Opere idrauliche extra", qty: 1 },
+      { key: "costo_trasformatore", label: "Trasformatore", qty: 0 },
+      { key: "costo_rele", label: "Rele", qty: 0 },
+      { key: "costo_elettricista", label: "Elettricista", qty: 1 },
+      { key: "costo_collegamenti_elettrici", label: "Collegamenti elettrici", qty: nUnita },
+      { key: "costo_valvola_intercettazione", label: "Valvola intercettazione", qty: 0 }
+    ];
+    compFields.forEach(function(cf) {
+      var val = fc[cf.key] || 0;
+      h += "<tr><td>" + cf.label + '</td><td><input class="inp" type="number" step="0.01" value="' + val + '" data-fc-val="' + cf.key + '" style="width:70px;padding:1px 4px;font-size:.72rem" /></td>';
+      h += "<td>" + (cf.qty || '-') + "</td><td><strong>" + fmtEur(val * (cf.qty || 1)) + "</strong></td></tr>";
+    });
+    h += "</tbody></table></div>";
+
+    /* SEZIONE 3B: Installazione Idraulica */
+    h += '<div class="card mb16" style="border-left:3px solid #f59e0b">';
+    h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px;color:#854F0B"><i data-lucide="wrench" style="width:16px;height:16px;vertical-align:-2px"></i> Installazione Idraulica</h3>';
+    h += '<table class="tbl" style="font-size:.78rem"><thead><tr><th>Tipo</th><th>Costo cad</th><th>Q.ta</th><th>Totale</th></tr></thead><tbody>';
+    if (fc.cont_riscaldamento || fc.cont_hc) {
+      var instCal = fc.inst_cont_calore || 27;
+      h += '<tr><td>Contatore calore</td><td><input class="inp" type="number" step="0.01" value="' + instCal + '" data-fc-val="inst_cont_calore" style="width:70px;padding:1px 4px;font-size:.72rem" /></td><td>' + nUnita + '</td><td><strong>' + fmtEur(instCal * nUnita) + "</strong></td></tr>";
+    }
+    if (fc.cont_acqua_calda) {
+      var instAC = fc.inst_cont_acqua_calda || 22;
+      h += '<tr><td>Contatore acqua calda</td><td><input class="inp" type="number" step="0.01" value="' + instAC + '" data-fc-val="inst_cont_acqua_calda" style="width:70px;padding:1px 4px;font-size:.72rem" /></td><td>' + nUnita + '</td><td><strong>' + fmtEur(instAC * nUnita) + "</strong></td></tr>";
+    }
+    if (fc.cont_acqua_fredda) {
+      var instAF = fc.inst_cont_acqua_fredda || 22;
+      h += '<tr><td>Contatore acqua fredda</td><td><input class="inp" type="number" step="0.01" value="' + instAF + '" data-fc-val="inst_cont_acqua_fredda" style="width:70px;padding:1px 4px;font-size:.72rem" /></td><td>' + nUnita + '</td><td><strong>' + fmtEur(instAF * nUnita) + "</strong></td></tr>";
+    }
+    h += '<tr><td>Modifiche idrauliche extra</td><td colspan="2"></td><td><input class="inp" type="number" step="0.01" value="' + (fc.inst_modifiche_idrauliche || 0) + '" data-fc-val="inst_modifiche_idrauliche" style="width:80px;padding:1px 4px;font-size:.72rem" /></td></tr>';
+    h += "</tbody></table></div>";
+  }
+
+  /* SEZIONE 4: Centralizzazione (entrambi) */
   h += '<div class="card mb16">';
-  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 12px"><i data-lucide="users" style="width:16px;height:16px;vertical-align:-2px"></i> Provvigioni</h3>';
+  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px"><i data-lucide="wifi" style="width:16px;height:16px;vertical-align:-2px"></i> Centralizzazione</h3>';
+  h += '<div style="font-size:.78rem;margin-bottom:8px">Famiglia: ';
+  h += '<button class="pill-btn' + (fc.centr_famiglia === "radio" ? " on" : "") + '" data-fc-centr-fam="radio" style="font-size:.72rem">Radio</button> ';
+  h += '<button class="pill-btn' + (fc.centr_famiglia === "mbus" ? " on" : "") + '" data-fc-centr-fam="mbus" style="font-size:.72rem">M-Bus</button></div>';
+  if (fc.centr_famiglia) {
+    h += '<table class="tbl" style="font-size:.78rem"><thead><tr><th>Voce</th><th>Costo</th><th>Pezzi</th><th>Totale</th></tr></thead><tbody>';
+    h += '<tr><td>' + esc(fc.centr_modello || "Concentratore") + '</td><td><input class="inp" type="number" step="0.01" value="' + (fc.centr_costo_acquisto || 0) + '" data-fc-val="centr_costo_acquisto" style="width:70px;padding:1px 4px;font-size:.72rem" /></td>';
+    h += '<td><input class="inp" type="number" value="' + (fc.centr_pezzi || 1) + '" data-fc-val="centr_pezzi" style="width:50px;padding:1px 4px;font-size:.72rem" /></td>';
+    h += '<td><strong>' + fmtEur((fc.centr_costo_acquisto || 0) * (fc.centr_pezzi || 1)) + "</strong></td></tr>";
+    if (fc.centr_famiglia === "mbus") {
+      h += '<tr><td>PW e Router</td><td><input class="inp" type="number" step="0.01" value="' + (fc.centr_pw_router || 0) + '" data-fc-val="centr_pw_router" style="width:70px;padding:1px 4px;font-size:.72rem" /></td><td>1</td><td><strong>' + fmtEur(fc.centr_pw_router || 0) + "</strong></td></tr>";
+    }
+    h += '<tr><td>Installazione</td><td><input class="inp" type="number" step="0.01" value="' + (fc.centr_costo_installazione || 0) + '" data-fc-val="centr_costo_installazione" style="width:70px;padding:1px 4px;font-size:.72rem" /></td><td>1</td><td><strong>' + fmtEur(fc.centr_costo_installazione || 0) + "</strong></td></tr>";
+    h += "</tbody></table>";
+  }
+  h += "</div>";
+
+  /* SEZIONE 5: Servizio Lettura */
+  var lettTipo = fc.servizio_lettura_tipo || "";
+  h += '<div class="card mb16" style="border-left:3px solid #009FE3">';
+  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 8px;color:#0080B8"><i data-lucide="radio" style="width:16px;height:16px;vertical-align:-2px"></i> Servizio Lettura</h3>';
+  h += '<div class="fac gap12" style="font-size:.82rem">';
+  h += '<div>Tipo: <span class="badge b-blue">' + (lettTipo || "N/D") + "</span></div>";
+  h += '<div>Prezzo cad: <input class="inp" type="number" step="0.01" value="' + (fc.servizio_lettura_cad || 0) + '" data-fc-val="servizio_lettura_cad" style="width:80px;padding:2px 6px;font-size:.78rem" /></div>';
+  h += '<div>N. app: ' + (nRad || nUnita || 0) + "</div>";
+  var lettTot = (fc.servizio_lettura_cad || 0) * (nRad || nUnita || 0);
+  h += '<div><strong>Totale annuo: ' + fmtEur(lettTot) + "</strong></div>";
+  h += "</div></div>";
+
+  /* SEZIONE 6: Riepilogo Costi */
+  var totCosti = 0;
+  if (scenario === "valvole") {
+    totCosti = ((fc.costo_kit_valvola || 0) + (fc.costo_montaggio_valvola || 0) + (fc.costo_apparecchio_ripartitore || 0)) * nRad + (fc.costo_extra_trasporto || 0);
+  }
+  // Add centralizzazione
+  totCosti += (fc.centr_costo_acquisto || 0) * (fc.centr_pezzi || 1) + (fc.centr_pw_router || 0) + (fc.centr_costo_installazione || 0);
+
+  h += '<div style="background:#0D1F35;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px">';
+  h += '<div style="font-size:.85rem;font-weight:800;display:flex;justify-content:space-between"><span>Totale Costi</span><span>' + fmtEur(totCosti) + "</span></div></div>";
+
+  /* SEZIONE 7: K + Offerta + GM */
+  var kVal = fc.k_moltiplicatore || 1.0;
+  var costiK = totCosti * kVal;
+  var ricForn = fc.ricavo_fornitura || 0;
+  var gm = ricForn - costiK;
+  var gmPct = ricForn > 0 ? (gm / ricForn * 100) : 0;
+  var gmCol = gm >= 0 ? "#639922" : "#A32D2D";
+  var barCol = gmPct > 30 ? "#639922" : (gmPct > 15 ? "#f59e0b" : "#ef4444");
+
+  h += '<div class="card mb16" style="background:var(--bg)">';
+  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 10px"><i data-lucide="calculator" style="width:16px;height:16px;vertical-align:-2px"></i> Analisi Economica</h3>';
+  h += '<div class="fac gap12 mb8"><span style="font-size:.78rem;font-weight:700">K:</span><input class="inp" type="number" step="0.05" min="1" max="3" value="' + kVal + '" id="fc-k" style="width:70px;padding:2px 6px;font-size:.78rem" />';
+  h += '<input type="range" min="1" max="3" step="0.05" value="' + kVal + '" id="fc-k-slider" style="flex:1" /></div>';
+  h += '<div style="font-size:.82rem;margin-bottom:4px">Costi x K: <strong>' + fmtEur(costiK) + "</strong></div>";
+  h += '<div style="font-size:.82rem;margin-bottom:4px">Offerta fornitura: <strong>' + fmtEur(ricForn) + '</strong> <input class="inp" type="number" step="0.01" value="' + ricForn + '" data-fc-val="ricavo_fornitura" style="width:90px;padding:2px 6px;font-size:.72rem;margin-left:8px" /></div>';
+  h += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px">';
+  h += '<div style="font-size:1rem;font-weight:800;color:' + gmCol + '">GM: ' + fmtEur(gm) + " (" + gmPct.toFixed(1) + "%)</div>";
+  h += '<div style="height:6px;background:var(--border);border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:100%;width:' + Math.min(Math.max(gmPct, 0), 100) + "%;background:" + barCol + ';border-radius:4px"></div></div>';
+  h += "</div>";
+  h += '<div style="font-size:.78rem;color:var(--muted);margin-top:10px">Canone lettura annuo: ' + fmtEur(lettTot) + "/anno | 3 anni: " + fmtEur(lettTot * 3) + " | 5 anni: " + fmtEur(lettTot * 5) + "</div>";
+  h += "</div>";
+
+  /* SEZIONE 8: Provvigioni */
+  h += '<div class="card mb16">';
+  h += '<h3 style="font-size:.92rem;font-weight:700;margin:0 0 10px"><i data-lucide="users" style="width:16px;height:16px;vertical-align:-2px"></i> Provvigioni</h3>';
+  var totProv = 0;
   for (var p = 1; p <= 3; p++) {
     var pn = fc["provvigione" + p + "_nome"] || "";
     var pp = fc["provvigione" + p + "_percentuale"] || 0;
-    var pe = margineLordo * pp / 100;
-    h += '<div class="fac gap8 mb8">';
-    h += '<input class="inp" value="' + esc(pn) + '" placeholder="Nome provvigione" style="flex:1;padding:4px 8px;font-size:.78rem" data-fc-prov-name="' + p + '" />';
-    h += '<input class="inp" type="number" step="0.5" value="' + pp + '" style="width:70px;padding:4px 8px;font-size:.78rem" data-fc-prov-pct="' + p + '" />%';
-    h += '<span style="min-width:80px;text-align:right;font-weight:700;font-size:.82rem">' + fmtEur(pe) + "</span></div>";
+    var pe = gm * pp / 100;
+    totProv += pe;
+    h += '<div class="fac gap6 mb6">';
+    h += '<input class="inp" value="' + esc(pn) + '" placeholder="Nome" style="flex:1;padding:3px 6px;font-size:.78rem" data-fc-prov-name="' + p + '" />';
+    h += '<input class="inp" type="number" step="0.5" value="' + pp + '" style="width:60px;padding:3px 6px;font-size:.78rem" data-fc-prov-pct="' + p + '" />%';
+    h += '<span style="min-width:70px;text-align:right;font-weight:700;font-size:.78rem">' + fmtEur(pe) + "</span></div>";
   }
-  var totProv = 0;
-  for (var p2 = 1; p2 <= 3; p2++) { totProv += margineLordo * (fc["provvigione" + p2 + "_percentuale"] || 0) / 100; }
-  h += '<div style="text-align:right;font-size:.85rem;font-weight:700;color:var(--mid)">Totale provvigioni: ' + fmtEur(totProv) + "</div>";
-  h += "</div>";
+  h += '<div style="text-align:right;font-size:.82rem;font-weight:700">Totale provvigioni: ' + fmtEur(totProv) + "</div></div>";
 
-  /* BLOCCO 6: Netto Finale */
-  var netto = margineLordo - totProv;
+  /* SEZIONE 9: Netto Finale */
+  var netto = gm - totProv;
   var nettoPct = ricForn > 0 ? (netto / ricForn * 100) : 0;
   var nettoCol = netto >= 0 ? "#639922" : "#A32D2D";
   h += '<div class="card mb16" style="background:linear-gradient(135deg,#f8fffe,#f4f9fd);border:2px solid ' + nettoCol + '">';
-  h += '<div style="font-size:.85rem;margin-bottom:4px">Margine lordo: ' + fmtEur(margineLordo) + "</div>";
-  h += '<div style="font-size:.85rem;margin-bottom:8px">Provvigioni: -' + fmtEur(totProv) + "</div>";
-  h += '<div style="border-top:2px solid ' + nettoCol + ';padding-top:10px">';
-  h += '<div style="font-size:1.5rem;font-weight:900;color:' + nettoCol + '">Netto Finale: ' + fmtEur(netto) + "</div>";
-  h += '<div style="font-size:1rem;font-weight:700;color:' + nettoCol + '">' + nettoPct.toFixed(1) + "%</div>";
-  h += '</div><div style="font-size:.72rem;color:var(--muted);font-style:italic;margin-top:8px">Calcolato su ricavo anno 1. Il canone annuo genera ulteriore margine.</div>';
-  h += "</div>";
+  h += '<div style="font-size:.82rem">GM lordo: ' + fmtEur(gm) + "</div>";
+  h += '<div style="font-size:.82rem">Provvigioni: -' + fmtEur(totProv) + "</div>";
+  h += '<div style="border-top:2px solid ' + nettoCol + ';padding-top:8px;margin-top:8px">';
+  h += '<div style="font-size:1.75rem;font-weight:900;color:' + nettoCol + '">Netto: ' + fmtEur(netto) + "</div>";
+  h += '<div style="font-size:1rem;font-weight:700;color:' + nettoCol + '">' + nettoPct.toFixed(1) + "%</div></div>";
+  h += '<div style="font-size:.72rem;color:var(--muted);font-style:italic;margin-top:8px">Calcolato su ricavo anno 1</div></div>';
+
+  /* SEZIONE 10: Costi per unita */
+  if (nUnita > 0) {
+    h += '<div class="card mb16"><h3 style="font-size:.85rem;font-weight:700;margin:0 0 8px">Costi per Unita Abitativa</h3>';
+    h += '<div style="display:flex;gap:20px;font-size:.82rem">';
+    h += '<div>Costo cad: <strong>' + fmtEur(totCosti / nUnita) + "</strong></div>";
+    h += '<div>Offerta cad: <strong>' + fmtEur(ricForn / nUnita) + "</strong></div>";
+    h += '<div>GM cad: <strong style="color:' + gmCol + '">' + fmtEur(gm / nUnita) + "</strong></div>";
+    h += "</div></div>";
+  }
 
   /* Azioni */
-  h += '<div class="fac gap8"><button class="btn btn-primary" id="btn-save-fc"><i data-lucide="save" style="width:14px;height:14px"></i> Salva Foglio Costi</button></div>';
+  h += '<div class="fac gap8"><button class="btn btn-primary" id="btn-save-fc"><i data-lucide="save" style="width:14px;height:14px"></i> Salva</button></div>';
 
   return h;
 }
@@ -384,6 +480,23 @@ function attachEvents() {
     });
   }
 
+  /* Scenario toggle */
+  document.querySelectorAll("[data-fc-scenario]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      if (!fcData || !fcData.foglio) return;
+      var newScenario = this.getAttribute("data-fc-scenario");
+      api("PATCH", "/api/fogli-costi/" + fcData.foglio.id, { scenario: newScenario }).then(function() { loadPage(); });
+    });
+  });
+
+  /* Centralizzazione famiglia */
+  document.querySelectorAll("[data-fc-centr-fam]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      if (!fcData || !fcData.foglio) return;
+      api("PATCH", "/api/fogli-costi/" + fcData.foglio.id, { centr_famiglia: this.getAttribute("data-fc-centr-fam") }).then(function() { loadPage(); });
+    });
+  });
+
   /* K slider sync */
   var kInput = document.getElementById("fc-k");
   var kSlider = document.getElementById("fc-k-slider");
@@ -410,17 +523,47 @@ function attachEvents() {
 
 function saveFoglioCosti() {
   if (!fcData || !fcData.foglio) return;
+  var payload = {};
+
+  // K
   var kEl = document.getElementById("fc-k");
-  var payload = {
-    k_moltiplicatore: parseFloat(kEl ? kEl.value : 1),
-  };
-  // Read provvigioni
+  if (kEl) payload.k_moltiplicatore = parseFloat(kEl.value) || 1;
+
+  // N radiatori
+  var nRadEl = document.getElementById("fc-n-rad");
+  if (nRadEl) payload.n_radiatori = parseInt(nRadEl.value) || 0;
+
+  // Installatore
+  var instEl = document.getElementById("fc-installatore");
+  if (instEl) payload.installatore_idraulico = instEl.value;
+
+  // All data-fc-val inputs
+  document.querySelectorAll("[data-fc-val]").forEach(function(inp) {
+    payload[inp.getAttribute("data-fc-val")] = parseFloat(inp.value) || 0;
+  });
+
+  // Contatore checkboxes
+  document.querySelectorAll("[data-fc-cont]").forEach(function(cb) {
+    payload["cont_" + cb.getAttribute("data-fc-cont")] = cb.checked ? 1 : 0;
+  });
+  document.querySelectorAll("[data-fc-cont-tr]").forEach(function(sel) {
+    payload["cont_" + sel.getAttribute("data-fc-cont-tr") + "_trasmissione"] = sel.value;
+  });
+  document.querySelectorAll("[data-fc-cont-dn]").forEach(function(sel) {
+    payload["cont_" + sel.getAttribute("data-fc-cont-dn") + "_dn"] = parseInt(sel.value) || 15;
+  });
+  document.querySelectorAll("[data-fc-cont-costo]").forEach(function(inp) {
+    payload["cont_" + inp.getAttribute("data-fc-cont-costo") + "_costo"] = parseFloat(inp.value) || 0;
+  });
+
+  // Provvigioni
   for (var i = 1; i <= 3; i++) {
     var nameEl = document.querySelector("[data-fc-prov-name='" + i + "']");
     var pctEl = document.querySelector("[data-fc-prov-pct='" + i + "']");
     if (nameEl) payload["provvigione" + i + "_nome"] = nameEl.value;
     if (pctEl) payload["provvigione" + i + "_percentuale"] = parseFloat(pctEl.value) || 0;
   }
+
   api("PATCH", "/api/fogli-costi/" + fcData.foglio.id, payload).then(function() {
     toast("Foglio costi salvato", "ok");
     fcDirty = false;

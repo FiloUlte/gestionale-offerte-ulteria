@@ -308,10 +308,80 @@ def init_db():
         "ALTER TABLE attivita ADD COLUMN oggetto_id INTEGER",
         "ALTER TABLE note_clienti ADD COLUMN oggetto_id INTEGER",
         "ALTER TABLE note_clienti ADD COLUMN offerta_id INTEGER",
+        # ── Prompt 3B: Foglio Costi unificato ──
+        "ALTER TABLE fogli_costi ADD COLUMN scenario TEXT DEFAULT 'valvole'",
+        "ALTER TABLE fogli_costi ADD COLUMN installatore_idraulico TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_riscaldamento INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_riscaldamento_trasmissione TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_riscaldamento_dn INTEGER",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_riscaldamento_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_hc INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_hc_trasmissione TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_hc_dn INTEGER",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_hc_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_raffrescamento INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_raffrescamento_trasmissione TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_raffrescamento_dn INTEGER",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_raffrescamento_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_calda INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_calda_trasmissione TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_calda_dn INTEGER",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_calda_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_fredda INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_fredda_trasmissione TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_fredda_dn INTEGER",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_fredda_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_ricircolo INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_ricircolo_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_duale INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN cont_acqua_duale_costo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN inst_cont_calore REAL DEFAULT 27",
+        "ALTER TABLE fogli_costi ADD COLUMN inst_cont_acqua_calda REAL DEFAULT 22",
+        "ALTER TABLE fogli_costi ADD COLUMN inst_cont_acqua_fredda REAL DEFAULT 22",
+        "ALTER TABLE fogli_costi ADD COLUMN inst_modifiche_idrauliche REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_valvola_zona REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_attuatore REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_produzione_modulo REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_opere_idrauliche_extra REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_trasformatore REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_rele REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_elettricista REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_collegamenti_elettrici REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_valvola_intercettazione REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_famiglia TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_modello TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_pezzi INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_costo_acquisto REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_costo_installazione REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_pw_router REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN centr_collaudo TEXT DEFAULT 'incluso'",
+        "ALTER TABLE fogli_costi ADD COLUMN n_radiatori INTEGER DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_kit_valvola REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_montaggio_valvola REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_apparecchio_ripartitore REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN costo_extra_trasporto REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_tipo TEXT",
+        "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_cad REAL DEFAULT 0",
+        "ALTER TABLE fogli_costi ADD COLUMN servizio_lettura_totale REAL DEFAULT 0",
     ]
     for stmt in migrations:
         try:
             conn.execute(stmt)
+        except Exception:
+            pass
+
+    # ── Prompt 3B: Add M-BUS concentrators ──
+    mbus_models = [
+        ("concentratore_mbus", "WEBLOG-250", "server", 0, 0, None, 11),
+        ("concentratore_mbus", "CME", "server", 0, 0, None, 12),
+        ("concentratore_mbus", "CMC", "server", 0, 0, None, 13),
+    ]
+    for cat, nome, ico, trasm, dn, tl, ordine in mbus_models:
+        try:
+            conn.execute(
+                "INSERT INTO modelli_apparecchio (categoria,nome,icona,trasmissione_disponibile,dn_disponibile,tipo_lettura,ordine) VALUES (?,?,?,?,?,?,?)",
+                (cat, nome, ico, trasm, dn, tl, ordine),
+            )
         except Exception:
             pass
 
@@ -2262,6 +2332,7 @@ def api_fogli_costi_update(fid):
     data = request.json
     conn = get_db()
     allowed = [
+        "scenario", "installatore_idraulico",
         "costo_apparecchi", "costo_installazione_idraulica", "costo_installazione_elettrica",
         "costo_concentratori", "costo_materiali_extra", "note_costi", "totale_costi",
         "ricavo_fornitura", "ricavo_servizio_annuo", "k_moltiplicatore",
@@ -2270,6 +2341,22 @@ def api_fogli_costi_update(fid):
         "provvigione2_nome", "provvigione2_percentuale", "provvigione2_euro",
         "provvigione3_nome", "provvigione3_percentuale", "provvigione3_euro",
         "netto_finale",
+        "cont_riscaldamento", "cont_riscaldamento_trasmissione", "cont_riscaldamento_dn", "cont_riscaldamento_costo",
+        "cont_hc", "cont_hc_trasmissione", "cont_hc_dn", "cont_hc_costo",
+        "cont_raffrescamento", "cont_raffrescamento_trasmissione", "cont_raffrescamento_dn", "cont_raffrescamento_costo",
+        "cont_acqua_calda", "cont_acqua_calda_trasmissione", "cont_acqua_calda_dn", "cont_acqua_calda_costo",
+        "cont_acqua_fredda", "cont_acqua_fredda_trasmissione", "cont_acqua_fredda_dn", "cont_acqua_fredda_costo",
+        "cont_acqua_ricircolo", "cont_acqua_ricircolo_costo",
+        "cont_acqua_duale", "cont_acqua_duale_costo",
+        "inst_cont_calore", "inst_cont_acqua_calda", "inst_cont_acqua_fredda", "inst_modifiche_idrauliche",
+        "costo_valvola_zona", "costo_attuatore", "costo_produzione_modulo", "costo_opere_idrauliche_extra",
+        "costo_trasformatore", "costo_rele", "costo_elettricista", "costo_collegamenti_elettrici",
+        "costo_valvola_intercettazione",
+        "centr_famiglia", "centr_modello", "centr_pezzi", "centr_costo_acquisto",
+        "centr_costo_installazione", "centr_pw_router", "centr_collaudo",
+        "n_radiatori", "costo_kit_valvola", "costo_montaggio_valvola",
+        "costo_apparecchio_ripartitore", "costo_extra_trasporto",
+        "servizio_lettura_tipo", "servizio_lettura_cad", "servizio_lettura_totale",
     ]
     sets, vals = [], []
     for k in allowed:
