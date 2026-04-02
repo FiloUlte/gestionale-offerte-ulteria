@@ -2103,12 +2103,17 @@ def api_generatore_crea():
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (numero, nome_studio, data.get("cond_nome", ""),
          data["cond_via"], data.get("cond_cap", ""), data["cond_comune"],
-         "", template_key,
-         None, None, None, "vendita",
-         importo_fornitura, importo_annuo,
+         data.get("riferimento", ""), template_key,
+         lettura.get("prezzo") if lettura else None,
+         care.get("prezzo") if care.get("attivo") else None,
+         lettura.get("prezzo") if lettura else None,
+         data.get("modalita", "vendita"),
+         importo_fornitura if importo_fornitura else None,
+         importo_annuo if importo_annuo else None,
          "richiamato", data.get("cliente_email", ""), now,
          int(data["agente_id"]), oggetto_id,
-         data["tipo_offerta"], data["natura"], 0, "attiva", "A"),
+         data["tipo_offerta"], data["natura"],
+         1 if data.get("is_accordo_quadro") else 0, "attiva", "A"),
     )
     offerta_id = cur.lastrowid
 

@@ -105,7 +105,7 @@ function renderView() {
   var c = document.getElementById("content");
   switch (currentView) {
     case "dashboard": renderDashboard(c); break;
-    case "nuova": renderNuova(c); break;
+    case "nuova": window.location.href = "/generatore"; break;
     case "clienti": renderClienti(c); break;
     case "agenti": renderAgenti(c); break;
     case "admin": renderAdminDashboard(c); break;
@@ -250,17 +250,17 @@ function buildDashboard(c) {
   /* Stato filter tabs */
   h += '<div class="fac gap4 mb12" id="stato-tabs">';
   var stTabs = [
-    { val: "", label: "Tutte" },
-    { val: "in_attesa_assemblea", label: "In Attesa", color: "#0ea5e9" },
-    { val: "richiamato", label: "Richiamato", color: "#f59e0b" },
-    { val: "preso_lavoro", label: "Preso", color: "#22c55e" },
-    { val: "perso", label: "Perso", color: "#ef4444" },
-    { val: "rimandato", label: "Rimandato", color: "#7c3aed" }
+    { val: "", label: "Tutte", bg: "#E6F5FC", color: "#0080B8" },
+    { val: "in_attesa_assemblea", label: "In Attesa", bg: "#FFF3E0", color: "#E65100" },
+    { val: "richiamato", label: "Richiamato", bg: "#FAEEDA", color: "#854F0B" },
+    { val: "preso_lavoro", label: "Preso", bg: "#EAF3DE", color: "#639922" },
+    { val: "perso", label: "Perso", bg: "#FCEBEB", color: "#A32D2D" },
+    { val: "rimandato", label: "Rimandato", bg: "#EEEDFE", color: "#534AB7" }
   ];
   stTabs.forEach(function(t) {
     var active = t.val === "" ? (dashFilters.stati.length === 0) : (dashFilters.stati.indexOf(t.val) >= 0);
-    var style = active && t.color ? "background:" + t.color + ";color:#fff;border-color:" + t.color : "";
-    h += '<button class="btn btn-sm btn-sec" data-stato-filter="' + t.val + '" style="' + style + '">' + t.label + "</button>";
+    var style = active ? "background:" + t.color + ";color:#fff;border-color:" + t.color : "background:" + t.bg + ";color:" + t.color + ";border-color:" + t.bg;
+    h += '<button class="btn btn-sm" data-stato-filter="' + t.val + '" style="' + style + ';font-weight:700;font-size:.72rem;border-radius:20px;padding:4px 12px">' + t.label + "</button>";
   });
   h += "</div>";
 
@@ -288,7 +288,8 @@ function buildDashboard(c) {
   }
   h += "</div>";
   h += '<div class="fac gap8">';
-  h += '<button class="btn btn-primary btn-sm" id="btn-nuova"><i data-lucide="plus" style="width:14px;height:14px"></i> Crea Offerta</button>';
+  h += '<a href="/generatore" class="btn btn-primary btn-sm" style="text-decoration:none"><i data-lucide="zap" style="width:14px;height:14px"></i> Generatore Offerte</a>';
+  h += '<button class="btn btn-sec btn-sm" id="btn-nuova-riga"><i data-lucide="plus" style="width:14px;height:14px"></i> Nuova Riga</button>';
   h += '<button class="btn btn-sec btn-sm" id="btn-csv"><i data-lucide="download" style="width:14px;height:14px"></i> Esporta CSV</button>';
   h += "</div></div>";
 
@@ -479,8 +480,13 @@ function attachDashEvents(c) {
   });
 
   /* Toolbar */
-  var btnNuova = document.getElementById("btn-nuova");
-  if (btnNuova) btnNuova.addEventListener("click", function() { navigate("nuova"); });
+  var btnNuovaRiga = document.getElementById("btn-nuova-riga");
+  if (btnNuovaRiga) btnNuovaRiga.addEventListener("click", function() {
+    api("POST", "/api/offerte", { nome_studio: "", template: "E40", stato: "richiamato" }).then(function() {
+      toast("Riga creata", "ok");
+      renderDashboard(c);
+    });
+  });
   var btnCsv = document.getElementById("btn-csv");
   if (btnCsv) btnCsv.addEventListener("click", function() { esportaCsv(offerte); });
   var bulkDesel = document.getElementById("bulk-desel");

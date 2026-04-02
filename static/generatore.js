@@ -761,7 +761,9 @@ function doGenerate() {
       lettura: { tipo: getTipoLettura(), prezzo: parseFloat(gen.lettura_prezzo) || 0, quantita: parseInt(gen.lettura_qty || getTotaleApparecchi()) || 0 },
       care: { attivo: gen.care_on, prezzo: parseFloat(gen.care_prezzo) || 0, quantita: parseInt(gen.care_qty || getTotaleApparecchi()) || 0 }
     },
-    template: gen.template
+    template: gen.template,
+    is_accordo_quadro: gen.template && gen.template.indexOf("ACCORDO") >= 0 ? 1 : 0,
+    riferimento: gen.template && gen.template.indexOf("ACCORDO") >= 0 ? "Accordo Quadro" : ""
   };
 
   api("POST", "/api/generatore/crea", payload).then(function(res) {
