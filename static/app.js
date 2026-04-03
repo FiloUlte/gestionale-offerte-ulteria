@@ -354,18 +354,34 @@ function buildDashboard(c) {
     }
     /* Tipologia (sottotipo badge) */
     if (dashVisibleCols.indexOf("tipologia") >= 0) {
+      var tipoColorMap = {
+        "CK": { bg: "var(--pragma-ck-bg)", color: "var(--pragma-ck)" },
+        "CL": { bg: "var(--pragma-cl-bg)", color: "var(--pragma-cl)" },
+        "RK": { bg: "var(--pragma-rk-bg)", color: "var(--pragma-rk)" },
+        "RD": { bg: "var(--pragma-rd-bg)", color: "var(--pragma-rd)" },
+        "MANSIS": { bg: "var(--pragma-warning-bg)", color: "var(--pragma-warning)" },
+        "MANCT": { bg: "var(--pragma-purple-bg)", color: "var(--pragma-purple)" },
+        "MAN-DOMO": { bg: "#FAC775", color: "#412402" },
+        "MISURATORI": { bg: "#FAECE7", color: "#993C1D" },
+        "RICAMBI": { bg: "#F5C4B3", color: "#4A1B0C" },
+        "CM": { bg: "var(--pragma-neutral-bg)", color: "var(--pragma-neutral)" },
+        "cc_modus": { bg: "var(--pragma-modus-bg)", color: "var(--pragma-modus)" },
+        "cu_unitron": { bg: "var(--pragma-unitron-bg)", color: "var(--pragma-unitron)" }
+      };
       var tipoBadge = "";
-      if (o.sottotipo) {
-        tipoBadge = '<span class="badge" style="font-size:.6rem">' + esc(o.sottotipo) + "</span>";
-      } else if (o.macro_categoria === "cc_modus") {
-        tipoBadge = '<span class="badge" style="font-size:.6rem;background:#FAEEDA;color:#854F0B">CC-MODUS</span>';
-      } else if (o.macro_categoria === "cu_unitron") {
-        tipoBadge = '<span class="badge" style="font-size:.6rem;background:#EEEDFE;color:#3C3489">UNITRON</span>';
-      } else if (o.tipo_offerta) {
-        tipoBadge = '<span class="badge b-gray" style="font-size:.6rem">' + esc(o.tipo_offerta) + "</span>";
+      var tipoKey = o.sottotipo || o.macro_categoria || "";
+      var tipoLabel = o.sottotipo || "";
+      if (!tipoLabel && o.macro_categoria === "cc_modus") tipoLabel = "MODUS";
+      else if (!tipoLabel && o.macro_categoria === "cu_unitron") tipoLabel = "UNITRON";
+      else if (!tipoLabel && o.tipo_offerta) tipoLabel = o.tipo_offerta;
+      var tc = tipoColorMap[tipoKey] || tipoColorMap[o.macro_categoria] || null;
+      if (tipoLabel && tc) {
+        tipoBadge = '<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:' + tc.bg + ';color:' + tc.color + '">' + esc(tipoLabel) + "</span>";
+      } else if (tipoLabel) {
+        tipoBadge = '<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--pragma-neutral-bg);color:var(--pragma-neutral)">' + esc(tipoLabel) + "</span>";
       }
-      if (o.is_gara_appalto) tipoBadge += ' <span class="badge" style="font-size:.5rem;background:#FCEBEB;color:#A32D2D">GARA</span>';
-      h += "<td>" + (tipoBadge || "\u2014") + "</td>";
+      if (o.is_gara_appalto) tipoBadge += ' <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;background:var(--pragma-danger-bg);color:var(--pragma-danger)">GARA</span>';
+      h += "<td>" + (tipoBadge || '<span style="color:var(--pragma-text-placeholder)">\u2014</span>') + "</td>";
     }
     /* Valore */
     if (dashVisibleCols.indexOf("valore") >= 0) {
@@ -1201,11 +1217,26 @@ function showNuovaOffertaModal(cont) {
 
   /* ── SEZIONE 3: Tipologia ── */
   bh += '<div style="border-left:3px solid #EF9F27;padding-left:16px;margin-bottom:20px">';
-  bh += '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px;color:var(--text)"><i data-lucide="layers" style="width:16px;height:16px;vertical-align:-3px;color:#EF9F27"></i> Tipologia Offerta</div>';
+  bh += '<div style="font-size:.95rem;font-weight:800;margin-bottom:10px;color:var(--pragma-text-primary)"><i data-lucide="layers" style="width:16px;height:16px;vertical-align:-3px;color:#EF9F27"></i> Tipologia Offerta</div>';
+
+  /* Macro categoria select */
+  bh += '<div style="margin-bottom:10px"><label style="font-size:12px;font-weight:600;color:var(--pragma-text-muted);display:block;margin-bottom:4px">Macro Categoria</label>';
+  bh += '<select class="inp" id="no-macro-sel" style="font-size:.88rem;padding:9px 12px;width:100%">';
+  bh += '<option value="">-- Seleziona categoria --</option>';
+  bh += '<option value="installazione">Installazione (CK / CL)</option>';
+  bh += '<option value="servizi">Servizi (RK / RD / MANSIS / MANCT)</option>';
+  bh += '<option value="cc_modus">CC-Modus</option>';
+  bh += '<option value="cu_unitron">CU-Unitron</option>';
+  bh += '<option value="fornitura">Fornitura (Misuratori / Ricambi)</option>';
+  bh += '<option value="interventi">Interventi (CM)</option>';
+  bh += "</select></div>";
+
+  /* Sottotipo pills */
+  bh += '<div style="margin-bottom:6px"><label style="font-size:12px;font-weight:600;color:var(--pragma-text-muted);display:block;margin-bottom:6px">Sottotipo</label></div>';
   bh += '<div style="display:flex;flex-wrap:wrap;gap:8px" id="no-tipo-pills">';
   sottotipiDef.forEach(function(st) {
-    bh += '<button data-no-tipo="' + st.val + '" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:2px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;min-width:110px">';
-    bh += '<i data-lucide="' + st.icon + '" style="width:16px;height:16px"></i>';
+    bh += '<button data-no-tipo="' + st.val + '" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:2px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s">';
+    bh += '<i data-lucide="' + st.icon + '" style="width:14px;height:14px"></i>';
     bh += '<span>' + st.label + '</span>';
     bh += "</button>";
   });
@@ -1264,6 +1295,24 @@ function showNuovaOffertaModal(cont) {
 
   /* ── Events ── */
   /* uses global _noTipo, _noMacro */
+
+  /* Macro categoria select → updates _noMacro and filters pills */
+  var macroSel = document.getElementById("no-macro-sel");
+  if (macroSel) {
+    macroSel.addEventListener("change", function() {
+      _noMacro = this.value;
+      /* Show/hide pills based on macro */
+      document.querySelectorAll("[data-no-tipo]").forEach(function(btn) {
+        var val = btn.getAttribute("data-no-tipo");
+        var st = sottotipiDef.find(function(s) { return s.val === val; });
+        if (!_noMacro || !st || st.macro === _noMacro || val === "_altro") {
+          btn.style.display = "flex";
+        } else {
+          btn.style.display = "none";
+        }
+      });
+    });
+  }
 
   /* Close X button */
   var closeX = document.getElementById("no-close-x");
@@ -1440,7 +1489,7 @@ function showNuovaOffertaModal(cont) {
     if (!studio) { alert("Studio / Cliente obbligatorio"); return; }
 
     var tipo = _noTipo === "_altro" ? (document.getElementById("no-tipo-custom").value || "altro") : _noTipo;
-    var macro = _noMacro;
+    var macro = _noMacro || (document.getElementById("no-macro-sel") ? document.getElementById("no-macro-sel").value : "");
     if (tipo === "_altro" || !macro) macro = "";
 
     var payload = {
