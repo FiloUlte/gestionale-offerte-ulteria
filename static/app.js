@@ -125,8 +125,8 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","elimina"];
-var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Cliente",riferimento:"Riferimento",tipologia:"Tipo",valore:"Valore",agente_id:"Ag.",stato:"Stato",giorni:"Gg",elimina:""};
+var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","riferimento","tipologia","valore","agente_id","stato","elimina"];
+var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Cliente",riferimento:"Riferimento",tipologia:"Tipo",valore:"Valore",agente_id:"Ag.",stato:"Stato",elimina:""};
 
 function loadDashFilters() {
   try {
@@ -276,7 +276,7 @@ function buildDashboard(c) {
   h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
   h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
 
-  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1, giorni: 1 };
+  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1 };
   var colDefs = [
     { key: "numero", w: "70px" }, { key: "data_creazione", w: "80px" },
     { key: "nome_studio", w: "auto" }, { key: "riferimento", w: "auto" },
@@ -284,7 +284,7 @@ function buildDashboard(c) {
     { key: "valore", w: "90px", cls: "r" },
     { key: "agente_id", w: "40px" },
     { key: "stato", w: "110px" },
-    { key: "giorni", w: "45px" }, { key: "elimina", w: "30px" }
+    { key: "elimina", w: "30px" }
   ];
   var filterableCols = { stato: 1, agente_id: 1, tipologia: 1, nome_studio: 1 };
   colDefs.forEach(function(cd) {
@@ -417,60 +417,59 @@ function buildDashboard(c) {
     /* Stato */
     if (dashVisibleCols.indexOf("stato") >= 0) h += '<td><span class="stato-badge ' + si.cls + '" style="cursor:pointer" data-stato-click="' + o.id + '">' + si.label + "</span></td>";
     /* Giorni */
-    if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
+    /* Giorni rimosso dalla tabella — mostrato nel pannello espanso */
     /* Elimina (solo cestino) */
     if (dashVisibleCols.indexOf("elimina") >= 0) {
       h += '<td style="padding:4px;text-align:center"><button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina" style="padding:2px;border:none;background:none;cursor:pointer;color:var(--pragma-text-muted);opacity:.4;transition:all .15s"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></td>';
     }
     h += "</tr>";
 
-    /* Expanded detail row */
+    /* Expanded detail row — solo dettagli extra, no ripetizioni dalla riga */
     if (isExp) {
       var hasDocx = !!o.path_docx, hasPdf = !!o.path_pdf;
       var natMap2 = { nuovo: "Nuovo", rinnovo: "Rinnovo", subentro_diretto: "Subentro Dir.", subentro_intermediario: "Subentro Int." };
       h += '<tr class="row-expanded"><td colspan="' + (colDefs.length + 1) + '">';
       h += '<div class="expand-panel">';
-      h += '<div style="display:flex;gap:20px;margin-bottom:12px">';
-      /* Left */
-      h += '<div style="flex:1">';
-      h += "<div style='margin-bottom:4px'><strong>" + esc(o.nome_studio || "") + "</strong>";
-      if (o.cliente_tipo) h += ' <span class="badge" style="font-size:.55rem;background:#E6F5FC;color:#0080B8">' + esc(o.cliente_tipo) + "</span>";
-      h += "</div>";
-      if (o.agente_id || o.agente_nome) {
-        h += '<div style="font-size:.82rem;margin-bottom:4px">';
-        if (o.agente_id) h += agenteHtml(o.agente_id);
-        else if (o.agente_nome) h += esc(o.agente_nome + " " + (o.agente_cognome || ""));
-        if (o.agente_id) h += ' <a href="/agenti/' + o.agente_id + '" style="color:var(--blue);font-size:.72rem">[Dashboard]</a>';
-        h += "</div>";
-      }
-      var rifAddr = (o.oggetto_via || o.via || "") + (o.oggetto_civico ? " " + o.oggetto_civico : "");
-      var rifCom = o.oggetto_comune || o.citta || "";
-      if (rifAddr || rifCom) {
-        h += '<div style="font-size:.82rem;color:var(--mid);margin-bottom:4px">Rif: ' + esc(rifAddr + (rifCom ? " \u2014 " + rifCom : ""));
-        if (o.oggetto_id) h += ' <a href="/oggetti/' + o.oggetto_id + '" style="color:var(--blue);font-size:.72rem">[Apri]</a>';
-        h += "</div>";
-      }
-      h += '<div style="font-size:.75rem;color:var(--muted)">';
-      h += "Template: " + esc(o.template || "\u2014") + " | Tipologia: " + esc(o.macro_categoria || o.tipo_offerta || "\u2014") + "/" + esc(o.sottotipo || "\u2014");
-      h += " | Natura: " + esc(natMap2[o.natura] || o.natura || "\u2014") + " | Ver.: " + esc(o.versione || "A");
-      h += "</div>";
-      if (o.importo_servizio_annuo) h += '<div style="font-size:.78rem;margin-top:4px">Canone annuo: <strong>' + fmtEurDash(o.importo_servizio_annuo) + "/anno</strong></div>";
-      if (o.segnalatore_nome) h += '<div style="font-size:.78rem">Segnalatore: ' + esc(o.segnalatore_nome) + "</div>";
-      if (o.is_gara_appalto) h += '<div style="font-size:.78rem;color:#A32D2D">Gara appalto: ' + esc(o.gara_id || "") + " \u2014 " + fmtEurDash(o.valore_gara) + "</div>";
-      h += "</div>";
-      /* Right */
-      h += '<div style="text-align:right">';
-      h += '<div><span class="stato-badge ' + si.cls + '" style="font-size:.78rem">' + si.label + "</span></div>";
-      if (gg !== null) h += "<div style='margin-top:4px'>" + ggHtml + "</div>";
-      h += '<div style="margin-top:4px;font-size:.72rem;color:var(--muted)">' + fmtData(o.data_creazione) + "</div>";
-      h += "</div></div>";
-      /* Actions */
-      h += '<div class="fac gap6" style="flex-wrap:wrap">';
+
+      /* Dettagli offerta — griglia compatta */
+      h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 20px;margin-bottom:14px;font-size:13px">';
+
+      /* Col 1: Dettagli commerciali */
+      h += '<div>';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Dettagli</div>';
+      h += '<div>Natura: <strong>' + esc(natMap2[o.natura] || o.natura || "\u2014") + '</strong></div>';
+      h += '<div>Versione: <strong>' + esc(o.versione || "A") + '</strong></div>';
+      h += '<div>Template: <strong>' + esc(o.template || "\u2014") + '</strong></div>';
+      if (o.segnalatore_nome) h += '<div>Segnalatore: <strong>' + esc(o.segnalatore_nome) + '</strong></div>';
+      h += '</div>';
+
+      /* Col 2: Valori economici */
+      h += '<div>';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Valori</div>';
+      var valComm = o.valore_commessa || o.importo || 0;
+      if (valComm) h += '<div>Valore commessa: <strong>' + fmtEurDash(valComm) + '</strong></div>';
+      if (o.importo_servizio_annuo) h += '<div>Canone annuo: <strong>' + fmtEurDash(o.importo_servizio_annuo) + '/anno</strong></div>';
+      if (o.is_gara_appalto) h += '<div style="color:var(--pragma-danger)">Gara: ' + esc(o.gara_id || "") + ' \u2014 ' + fmtEurDash(o.valore_gara) + '</div>';
+      if (!valComm && !o.importo_servizio_annuo) h += '<div style="color:var(--pragma-text-placeholder)">Nessun valore inserito</div>';
+      h += '</div>';
+
+      /* Col 3: Stato + giorni + link */
+      h += '<div>';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Stato</div>';
+      if (gg !== null) h += '<div>Giorni apertura: ' + ggHtml + '</div>';
+      if (o.oggetto_id) h += '<div><a href="/oggetti/' + o.oggetto_id + '" style="color:var(--pragma-blue);font-size:12px;text-decoration:none">Apri condominio \u2192</a></div>';
+      if (o.agente_id) h += '<div><a href="/agenti/' + o.agente_id + '" style="color:var(--pragma-blue);font-size:12px;text-decoration:none">Dashboard agente \u2192</a></div>';
+      if (o.note) h += '<div style="margin-top:4px;font-size:12px;color:var(--pragma-text-muted)">Note: ' + esc(o.note) + '</div>';
+      h += '</div>';
+
+      h += '</div>';
+
+      /* Azioni */
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:10px;border-top:0.5px solid var(--pragma-border-light)">';
       h += '<button class="btn btn-sm btn-sec" data-edit-off="' + o.id + '"><i data-lucide="edit" style="width:12px;height:12px"></i> Modifica</button>';
-      h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
+      h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera</button>';
       if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
-      if (hasPdf) h += '<button class="btn btn-sm btn-pdf" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
-      h += '<button class="btn btn-sm btn-sec" data-ver-id="' + o.id + '"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Aggiorna</button>';
+      if (hasPdf) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
       h += '<button class="btn btn-sm btn-sec" data-dup-id="' + o.id + '"><i data-lucide="copy" style="width:12px;height:12px"></i> Duplica</button>';
       if (o.oggetto_id) h += '<button class="btn btn-sm btn-sec" data-fc-oggetto="' + o.oggetto_id + '"><i data-lucide="euro" style="width:12px;height:12px"></i> Foglio Costi</button>';
       h += '<button class="btn btn-sm btn-sec" data-mail-id="' + o.id + '"><i data-lucide="mail" style="width:12px;height:12px"></i> Email</button>';
@@ -511,7 +510,7 @@ function loadKpiCards() {
     var kpiDefs2 = [
       { key: "cc_modus", label: "CC-Modus", icon: "layers", color: "#4A6274", data: d.cc_modus },
       { key: "cu_unitron", label: "CU-Unitron", icon: "wifi", color: "#3D5A99", data: d.cu_unitron },
-      { key: "fornitura", label: "Fornitura Materiale", icon: "package", color: "#5B7E95", data: d.fornitura }
+      { key: "fornitura", label: "Vendita", icon: "package", color: "#5B7E95", data: d.fornitura }
     ];
 
     function renderKpiCard(def) {
