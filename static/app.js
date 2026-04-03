@@ -507,15 +507,30 @@ function loadKpiCards() {
     ];
 
     function renderKpiCard(def) {
-      var k = def.data || { inviate: 0, prese: 0, valore_preso: 0, valore_annuo: 0 };
-      var val = k.valore_annuo ? fmtEurDash(k.valore_annuo) + "/anno" : fmtEurDash(k.valore_preso || 0);
+      var k = def.data || { inviate: 0, prese: 0, prospect: 0, perso: 0, valore_preso: 0, valore_prospect: 0, valore_annuo: 0, valore_prospect_annuo: 0 };
+      var isServizi = !!k.valore_annuo || !!k.valore_prospect_annuo;
+      var valPreso = isServizi ? (k.valore_annuo || 0) : (k.valore_preso || 0);
+      var valProspect = isServizi ? (k.valore_prospect_annuo || 0) : (k.valore_prospect || 0);
+      var suffix = isServizi ? "/anno" : "";
       var tasso = k.inviate > 0 ? Math.round(k.prese / k.inviate * 100) : 0;
       var active = dashFilters.macro_cat === def.key;
-      return '<div class="kpi" style="cursor:pointer;border-left:3px solid ' + def.color + (active ? ";outline:2px solid " + def.color : "") + '" data-kpi-cat="' + def.key + '">' +
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><i data-lucide="' + def.icon + '" style="width:16px;height:16px;color:' + def.color + '"></i><span style="font-size:.72rem;font-weight:700;color:' + def.color + '">' + def.label + '</span></div>' +
-        '<div style="display:flex;gap:12px;font-size:.78rem;margin-bottom:4px"><span>Inviate: <strong>' + k.inviate + '</strong></span><span>Prese: <strong style="color:#639922">' + k.prese + '</strong></span></div>' +
-        '<div style="font-size:.85rem;font-weight:800;color:' + def.color + '">' + val + '</div>' +
-        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + tasso + '%;background:' + def.color + ';border-radius:2px"></div></div>' +
+
+      return '<div class="kpi" style="cursor:pointer;border-top:3px solid ' + def.color + (active ? ";outline:2px solid " + def.color : "") + ';padding:16px" data-kpi-cat="' + def.key + '">' +
+        /* Header */
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><i data-lucide="' + def.icon + '" style="width:16px;height:16px;color:' + def.color + '"></i><span style="font-size:11px;font-weight:700;color:' + def.color + ';text-transform:uppercase;letter-spacing:.5px">' + def.label + '</span></div>' +
+        /* Conteggi */
+        '<div style="display:flex;gap:6px;font-size:12px;margin-bottom:10px">' +
+          '<span style="background:var(--pragma-neutral-bg);padding:2px 8px;border-radius:20px">Inviate <strong>' + k.inviate + '</strong></span>' +
+          '<span style="background:var(--pragma-success-bg);color:var(--pragma-success);padding:2px 8px;border-radius:20px">Prese <strong>' + k.prese + '</strong></span>' +
+          (k.prospect > 0 ? '<span style="background:var(--pragma-warning-bg);color:var(--pragma-warning);padding:2px 8px;border-radius:20px">Aperte <strong>' + k.prospect + '</strong></span>' : '') +
+        '</div>' +
+        /* Valori */
+        '<div style="display:flex;gap:16px;margin-bottom:8px">' +
+          '<div><div style="font-size:10px;color:var(--pragma-success);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Confermato</div><div style="font-size:16px;font-weight:800;color:var(--pragma-success)">' + fmtEurDash(valPreso) + suffix + '</div></div>' +
+          (valProspect > 0 ? '<div><div style="font-size:10px;color:var(--pragma-warning);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Potenziale</div><div style="font-size:16px;font-weight:800;color:var(--pragma-warning)">' + fmtEurDash(valProspect) + suffix + '</div></div>' : '') +
+        '</div>' +
+        /* Barra conversione */
+        '<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;background:var(--pragma-border-light);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + tasso + '%;background:' + def.color + ';border-radius:2px"></div></div><span style="font-size:11px;font-weight:700;color:var(--pragma-text-muted)">' + tasso + '%</span></div>' +
         "</div>";
     }
 

@@ -2949,28 +2949,35 @@ def api_dashboard_kpi():
     cats = ["installazione", "servizi", "cc_modus", "cu_unitron", "fornitura", "interventi"]
     result = {}
 
+    stati_aperte = "('richiamato','in_attesa_assemblea','rimandato')"
     for cat in cats:
         if cat == "installazione":
             for sub in ["CK", "CL"]:
                 key = sub
                 inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato_versione='attiva'", (sub,)).fetchone()[0]
                 prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva'", (sub,)).fetchone()[0]
-                val_normale = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva' AND (is_gara_appalto=0 OR is_gara_appalto IS NULL)", (sub,)).fetchone()[0]
-                val_gare = conn.execute("SELECT COALESCE(SUM(vg),0) FROM (SELECT MAX(valore_gara) as vg FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva' AND is_gara_appalto=1 AND gara_id IS NOT NULL GROUP BY gara_id)", (sub,)).fetchone()[0]
-                result[key] = {"inviate": inviate, "prese": prese, "valore_preso": val_normale + val_gare}
+                prospect = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato IN " + stati_aperte + " AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                perso = conn.execute("SELECT COUNT(*) FROM offerte WHERE sottotipo=? AND stato='perso' AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                val_preso = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE sottotipo=? AND stato='preso_lavoro' AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                val_prospect = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE sottotipo=? AND stato IN " + stati_aperte + " AND stato_versione='attiva'", (sub,)).fetchone()[0]
+                result[key] = {"inviate": inviate, "prese": prese, "prospect": prospect, "perso": perso, "valore_preso": val_preso, "valore_prospect": val_prospect}
         elif cat == "servizi":
             inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato_versione='attiva'").fetchone()[0]
             prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato='preso_lavoro' AND stato_versione='attiva'").fetchone()[0]
-            val = conn.execute("SELECT COALESCE(SUM(importo_servizio_annuo),0) FROM offerte WHERE macro_categoria='servizi' AND stato='preso_lavoro' AND stato_versione='attiva'").fetchone()[0]
+            prospect = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato IN " + stati_aperte + " AND stato_versione='attiva'").fetchone()[0]
+            perso = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria='servizi' AND stato='perso' AND stato_versione='attiva'").fetchone()[0]
+            val_preso = conn.execute("SELECT COALESCE(SUM(importo_servizio_annuo),0) FROM offerte WHERE macro_categoria='servizi' AND stato='preso_lavoro' AND stato_versione='attiva'").fetchone()[0]
+            val_prospect = conn.execute("SELECT COALESCE(SUM(importo_servizio_annuo),0) FROM offerte WHERE macro_categoria='servizi' AND stato IN " + stati_aperte + " AND stato_versione='attiva'").fetchone()[0]
             sottotipi_attivi = [r[0] for r in conn.execute("SELECT DISTINCT sottotipo FROM offerte WHERE macro_categoria='servizi' AND sottotipo IS NOT NULL AND stato_versione='attiva'").fetchall()]
-            result["servizi"] = {"inviate": inviate, "prese": prese, "valore_annuo": val, "sottotipi": sottotipi_attivi}
+            result["servizi"] = {"inviate": inviate, "prese": prese, "prospect": prospect, "perso": perso, "valore_annuo": val_preso, "valore_prospect_annuo": val_prospect, "sottotipi": sottotipi_attivi}
         else:
             inviate = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato_versione='attiva'", (cat,)).fetchone()[0]
             prese = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva'", (cat,)).fetchone()[0]
-            val_normale = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva' AND (is_gara_appalto=0 OR is_gara_appalto IS NULL)", (cat,)).fetchone()[0]
-            val_gare = conn.execute("SELECT COALESCE(SUM(vg),0) FROM (SELECT MAX(valore_gara) as vg FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva' AND is_gara_appalto=1 AND gara_id IS NOT NULL GROUP BY gara_id)", (cat,)).fetchone()[0]
-            gare_inviate = conn.execute("SELECT COUNT(DISTINCT gara_id) FROM offerte WHERE macro_categoria=? AND is_gara_appalto=1 AND stato_versione='attiva'", (cat,)).fetchone()[0]
-            result[cat] = {"inviate": inviate, "prese": prese, "valore_preso": val_normale + val_gare, "gare_inviate": gare_inviate}
+            prospect = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato IN " + stati_aperte + " AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            perso = conn.execute("SELECT COUNT(*) FROM offerte WHERE macro_categoria=? AND stato='perso' AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            val_preso = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE macro_categoria=? AND stato='preso_lavoro' AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            val_prospect = conn.execute("SELECT COALESCE(SUM(valore_commessa),0) FROM offerte WHERE macro_categoria=? AND stato IN " + stati_aperte + " AND stato_versione='attiva'", (cat,)).fetchone()[0]
+            result[cat] = {"inviate": inviate, "prese": prese, "prospect": prospect, "perso": perso, "valore_preso": val_preso, "valore_prospect": val_prospect}
 
     conn.close()
     return jsonify({"ok": True, "data": result})
