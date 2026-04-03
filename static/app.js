@@ -252,38 +252,7 @@ function buildDashboard(c) {
   h += '<div id="kpi-cards" class="g3 mb12" style="min-height:80px"></div>';
   h += '<div id="kpi-cards-2" class="g3 mb20" style="min-height:80px"></div>';
 
-  /* Stato filter tabs */
-  h += '<div class="fac gap4 mb12" id="stato-tabs">';
-  var stTabs = [
-    { val: "", label: "Tutte", bg: "#E6F5FC", color: "#0080B8" },
-    { val: "in_attesa_assemblea", label: "In Attesa", bg: "#FFF3E0", color: "#E65100" },
-    { val: "richiamato", label: "Richiamato", bg: "#FAEEDA", color: "#854F0B" },
-    { val: "preso_lavoro", label: "Preso", bg: "#EAF3DE", color: "#639922" },
-    { val: "perso", label: "Perso", bg: "#FCEBEB", color: "#A32D2D" },
-    { val: "rimandato", label: "Rimandato", bg: "#EEEDFE", color: "#534AB7" }
-  ];
-  stTabs.forEach(function(t) {
-    var active = t.val === "" ? (dashFilters.stati.length === 0) : (dashFilters.stati.indexOf(t.val) >= 0);
-    var style = active ? "background:" + t.color + ";color:#fff;border-color:" + t.color : "background:" + t.bg + ";color:" + t.color + ";border-color:" + t.bg;
-    h += '<button class="btn btn-sm" data-stato-filter="' + t.val + '" style="' + style + ';font-weight:700;font-size:.72rem;border-radius:20px;padding:4px 12px">' + t.label + "</button>";
-  });
-  h += "</div>";
-
-  /* Servizi filter buttons removed — filtering happens via KPI cards and Excel-like column headers */
-
-  /* Filter bar */
-  h += '<div class="fac gap8 mb12 flex-wrap" style="flex-wrap:wrap">';
-  h += '<select class="inp" id="f-agente" style="width:150px;padding:5px 8px;font-size:.75rem"><option value="">Tutti gli agenti</option>';
-  agenti.forEach(function(a) {
-    h += '<option value="' + a.id + '"' + (dashFilters.agente_id == a.id ? " selected" : "") + ">" + esc(a.nome + " " + a.cognome) + "</option>";
-  });
-  h += "</select>";
-  h += '<select class="inp" id="f-template" style="width:120px;padding:5px 8px;font-size:.75rem"><option value="">Tutti template</option><option value="E40"' + (dashFilters.template === "E40" ? " selected" : "") + '>E-ITN40</option><option value="Q55"' + (dashFilters.template === "Q55" ? " selected" : "") + ">Q5.5</option></select>";
-  h += '<input class="inp" id="f-search" placeholder="Cerca..." value="' + esc(dashFilters.q) + '" style="width:180px;padding:5px 8px;font-size:.75rem" />';
-  h += '<input class="inp" id="f-dal" type="date" value="' + (dashFilters.dal || "") + '" style="width:130px;padding:5px 8px;font-size:.75rem" title="Dal" />';
-  h += '<input class="inp" id="f-al" type="date" value="' + (dashFilters.al || "") + '" style="width:130px;padding:5px 8px;font-size:.75rem" title="Al" />';
-  h += '<button class="btn btn-ghost btn-sm" id="f-reset" title="Reset filtri"><i data-lucide="x" style="width:14px;height:14px"></i></button>';
-  h += "</div>";
+  /* Filters removed — all filtering via column headers (Excel-style) */
 
   /* Bulk + actions bar */
   h += '<div class="fjb mb8">';
@@ -314,16 +283,23 @@ function buildDashboard(c) {
     { key: "stato", w: "140px" },
     { key: "giorni", w: "60px" }, { key: "elimina", w: "40px" }
   ];
+  var filterableCols = { stato: 1, agente_id: 1, tipologia: 1, nome_studio: 1 };
   colDefs.forEach(function(cd) {
     if (dashVisibleCols.indexOf(cd.key) < 0) return;
     var label = COL_LABELS[cd.key] || cd.key;
     var arrow = "";
-    if (sortable[cd.key]) {
-      if (dashSort.col === cd.key) arrow = dashSort.dir === "asc" ? " \u2191" : " \u2193";
-      h += '<th style="width:' + cd.w + ';cursor:pointer" data-sort-col="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + "</th>";
-    } else {
-      h += '<th style="width:' + cd.w + '" class="' + (cd.cls || "") + '">' + label + "</th>";
+    var isFiltered = false;
+    if (dashSort.col === cd.key) arrow = dashSort.dir === "asc" ? " \u2191" : " \u2193";
+    /* Check if this column has active filter */
+    if (cd.key === "stato" && dashFilters.stati.length > 0) isFiltered = true;
+    if (cd.key === "agente_id" && dashFilters.agente_id) isFiltered = true;
+    if (cd.key === "tipologia" && (dashFilters.macro_cat || dashFilters.tipo_servizio)) isFiltered = true;
+
+    var filterIcon = '';
+    if (sortable[cd.key] || filterableCols[cd.key]) {
+      filterIcon = '<i data-lucide="' + (isFiltered ? "filter" : "chevron-down") + '" style="width:12px;height:12px;opacity:' + (isFiltered ? "1" : "0.4") + ';margin-left:4px;vertical-align:-1px' + (isFiltered ? ";color:#009FE3" : "") + '"></i>';
     }
+    h += '<th style="width:' + cd.w + ';cursor:pointer;position:relative" data-col-header="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + filterIcon + "</th>";
   });
   h += "</tr></thead><tbody>";
 
@@ -550,47 +526,7 @@ function loadKpiCards() {
 function attachDashEvents(c) {
   var searchTimer = null;
 
-  /* Stato filter tabs */
-  c.querySelectorAll("[data-stato-filter]").forEach(function(btn) {
-    btn.addEventListener("click", function() {
-      var val = this.getAttribute("data-stato-filter");
-      if (val === "") { dashFilters.stati = []; }
-      else {
-        var idx = dashFilters.stati.indexOf(val);
-        if (idx >= 0) dashFilters.stati.splice(idx, 1);
-        else dashFilters.stati.push(val);
-      }
-      dashPage = 0;
-      saveDashFilters();
-      buildDashboard(c);
-    });
-  });
-
-  /* Servizi filter buttons removed */
-
-  /* Filters */
-  var fAgente = document.getElementById("f-agente");
-  if (fAgente) fAgente.addEventListener("change", function() { dashFilters.agente_id = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
-  var fTemplate = document.getElementById("f-template");
-  if (fTemplate) fTemplate.addEventListener("change", function() { dashFilters.template = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
-  var fSearch = document.getElementById("f-search");
-  if (fSearch) fSearch.addEventListener("input", function() {
-    var val = this.value;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(function() { dashFilters.q = val; dashPage = 0; saveDashFilters(); buildDashboard(c); }, 300);
-  });
-  var fDal = document.getElementById("f-dal");
-  if (fDal) fDal.addEventListener("change", function() { dashFilters.dal = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
-  var fAl = document.getElementById("f-al");
-  if (fAl) fAl.addEventListener("change", function() { dashFilters.al = this.value; dashPage = 0; saveDashFilters(); buildDashboard(c); });
-  var fReset = document.getElementById("f-reset");
-  if (fReset) fReset.addEventListener("click", function() {
-    dashFilters = { stati: [], agente_id: "", template: "", q: "", dal: "", al: "", tipo_servizio: "", macro_cat: "", tipo_cliente: "" };
-    dashSort = { col: null, dir: null };
-    dashPage = 0;
-    localStorage.removeItem("dashFilters");
-    buildDashboard(c);
-  });
+  /* Old filter bars removed — filtering via column headers */
 
   /* Toolbar */
   var btnNuovaRiga = document.getElementById("btn-nuova-riga");
@@ -624,15 +560,12 @@ function attachDashEvents(c) {
     });
   });
 
-  /* Sort */
-  c.querySelectorAll("[data-sort-col]").forEach(function(th) {
-    th.addEventListener("click", function() {
-      var col = this.getAttribute("data-sort-col");
-      if (dashSort.col === col) {
-        if (dashSort.dir === "asc") dashSort.dir = "desc";
-        else if (dashSort.dir === "desc") { dashSort.col = null; dashSort.dir = null; }
-      } else { dashSort.col = col; dashSort.dir = "asc"; }
-      buildDashboard(c);
+  /* Column header click — Excel-style filter dropdown */
+  c.querySelectorAll("[data-col-header]").forEach(function(th) {
+    th.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var col = this.getAttribute("data-col-header");
+      showColumnFilterDropdown(col, this, c);
     });
   });
 
@@ -910,6 +843,180 @@ function showMotivoPerdita(oid, oldStato, cont) {
     footer.appendChild(btnConfirm);
   }
 }
+
+/* ─── Excel-style Column Filter Dropdown ─── */
+
+function showColumnFilterDropdown(col, thEl, cont) {
+  closeColumnFilter();
+
+  var dd = document.createElement("div");
+  dd.id = "col-filter-dd";
+  dd.style.cssText = "position:absolute;top:100%;left:0;min-width:200px;max-width:280px;background:#fff;border:1px solid var(--pragma-border-default);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:200;padding:8px 0;max-height:320px;overflow-y:auto;font-size:13px";
+
+  var h = "";
+
+  /* Sort options — always available */
+  h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Ordina</div>';
+  h += '<div class="cfd-item" data-cfd-sort="asc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s"><i data-lucide="arrow-up" style="width:14px;height:14px"></i> Crescente</div>';
+  h += '<div class="cfd-item" data-cfd-sort="desc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s"><i data-lucide="arrow-down" style="width:14px;height:14px"></i> Decrescente</div>';
+  if (dashSort.col === col) {
+    h += '<div class="cfd-item" data-cfd-sort="clear" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--pragma-danger);transition:background .1s"><i data-lucide="x" style="width:14px;height:14px"></i> Rimuovi ordinamento</div>';
+  }
+
+  /* Filter options — depends on column */
+  if (col === "stato") {
+    h += '<div style="border-top:1px solid var(--pragma-border-light);margin:6px 0"></div>';
+    h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Filtra per stato</div>';
+    var stati = [
+      { val: "richiamato", label: "Richiamato" },
+      { val: "in_attesa_assemblea", label: "In Attesa Assemblea" },
+      { val: "preso_lavoro", label: "Preso Lavoro" },
+      { val: "perso", label: "Perso" },
+      { val: "rimandato", label: "Rimandato" }
+    ];
+    stati.forEach(function(s) {
+      var checked = dashFilters.stati.indexOf(s.val) >= 0;
+      h += '<label class="cfd-item" style="padding:6px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s"><input type="checkbox" data-cfd-stato="' + s.val + '"' + (checked ? " checked" : "") + ' /> ' + s.label + '</label>';
+    });
+    if (dashFilters.stati.length > 0) {
+      h += '<div class="cfd-item" data-cfd-clear-stato="1" style="padding:7px 14px;cursor:pointer;color:var(--pragma-danger);display:flex;align-items:center;gap:6px"><i data-lucide="x" style="width:14px;height:14px"></i> Rimuovi filtro stato</div>';
+    }
+  }
+
+  if (col === "agente_id") {
+    h += '<div style="border-top:1px solid var(--pragma-border-light);margin:6px 0"></div>';
+    h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Filtra per agente</div>';
+    h += '<div class="cfd-item" data-cfd-agente="" style="padding:6px 14px;cursor:pointer;' + (!dashFilters.agente_id ? "font-weight:700;color:var(--pragma-blue)" : "") + '">Tutti gli agenti</div>';
+    agenti.forEach(function(a) {
+      var active = dashFilters.agente_id == a.id;
+      h += '<div class="cfd-item" data-cfd-agente="' + a.id + '" style="padding:6px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;' + (active ? "font-weight:700;color:var(--pragma-blue)" : "") + '"><span class="pragma-avatar" style="width:20px;height:20px;font-size:9px;background:' + (a.colore || "#009FE3") + '">' + ((a.nome || " ")[0] + (a.cognome || " ")[0]).toUpperCase() + '</span> ' + esc(a.nome + " " + a.cognome) + '</div>';
+    });
+  }
+
+  if (col === "tipologia") {
+    h += '<div style="border-top:1px solid var(--pragma-border-light);margin:6px 0"></div>';
+    h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Filtra per tipologia</div>';
+    var tipi = ["CK", "CL", "RK", "RD", "MANSIS", "MANCT", "CC-MODUS", "UNITRON"];
+    h += '<div class="cfd-item" data-cfd-tipo="" style="padding:6px 14px;cursor:pointer;' + (!dashFilters.macro_cat ? "font-weight:700;color:var(--pragma-blue)" : "") + '">Tutte le tipologie</div>';
+    tipi.forEach(function(t) {
+      var active = dashFilters.macro_cat === t || dashFilters.macro_cat === t.toLowerCase().replace("-", "_");
+      h += '<div class="cfd-item" data-cfd-tipo="' + t + '" style="padding:6px 14px;cursor:pointer;' + (active ? "font-weight:700;color:var(--pragma-blue)" : "") + '">' + t + '</div>';
+    });
+  }
+
+  if (col === "valore") {
+    h += '<div style="border-top:1px solid var(--pragma-border-light);margin:6px 0"></div>';
+    h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Cerca</div>';
+    h += '<div style="padding:4px 12px"><input class="inp" id="cfd-search" placeholder="Cerca..." value="' + esc(dashFilters.q) + '" style="width:100%;font-size:12px;padding:6px 10px" /></div>';
+  }
+
+  if (col === "numero" || col === "nome_studio" || col === "riferimento") {
+    h += '<div style="border-top:1px solid var(--pragma-border-light);margin:6px 0"></div>';
+    h += '<div style="padding:4px 12px"><input class="inp" id="cfd-search" placeholder="Cerca..." value="' + esc(dashFilters.q) + '" style="width:100%;font-size:12px;padding:6px 10px" /></div>';
+  }
+
+  dd.innerHTML = h;
+  thEl.style.position = "relative";
+  thEl.appendChild(dd);
+  icons();
+
+  /* Add hover style to items */
+  dd.querySelectorAll(".cfd-item").forEach(function(item) {
+    item.addEventListener("mouseenter", function() { this.style.background = "var(--pragma-blue-lighter)"; });
+    item.addEventListener("mouseleave", function() { this.style.background = ""; });
+  });
+
+  /* Sort handlers */
+  dd.querySelectorAll("[data-cfd-sort]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var dir = this.getAttribute("data-cfd-sort");
+      if (dir === "clear") { dashSort.col = null; dashSort.dir = null; }
+      else { dashSort.col = col; dashSort.dir = dir; }
+      closeColumnFilter();
+      buildDashboard(cont);
+    });
+  });
+
+  /* Stato checkboxes */
+  dd.querySelectorAll("[data-cfd-stato]").forEach(function(cb) {
+    cb.addEventListener("change", function() {
+      var val = this.getAttribute("data-cfd-stato");
+      if (this.checked) { if (dashFilters.stati.indexOf(val) < 0) dashFilters.stati.push(val); }
+      else { var idx = dashFilters.stati.indexOf(val); if (idx >= 0) dashFilters.stati.splice(idx, 1); }
+      dashPage = 0;
+      saveDashFilters();
+      closeColumnFilter();
+      buildDashboard(cont);
+    });
+  });
+  var clearStato = dd.querySelector("[data-cfd-clear-stato]");
+  if (clearStato) clearStato.addEventListener("click", function() {
+    dashFilters.stati = [];
+    dashPage = 0;
+    saveDashFilters();
+    closeColumnFilter();
+    buildDashboard(cont);
+  });
+
+  /* Agente */
+  dd.querySelectorAll("[data-cfd-agente]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      dashFilters.agente_id = this.getAttribute("data-cfd-agente");
+      dashPage = 0;
+      saveDashFilters();
+      closeColumnFilter();
+      buildDashboard(cont);
+    });
+  });
+
+  /* Tipologia */
+  dd.querySelectorAll("[data-cfd-tipo]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var val = this.getAttribute("data-cfd-tipo");
+      if (val === "CC-MODUS") val = "cc_modus";
+      else if (val === "UNITRON") val = "cu_unitron";
+      dashFilters.macro_cat = val;
+      dashPage = 0;
+      saveDashFilters();
+      closeColumnFilter();
+      buildDashboard(cont);
+    });
+  });
+
+  /* Search */
+  var searchInp = dd.querySelector("#cfd-search");
+  if (searchInp) {
+    searchInp.focus();
+    var searchTimer2 = null;
+    searchInp.addEventListener("input", function() {
+      var val = this.value;
+      clearTimeout(searchTimer2);
+      searchTimer2 = setTimeout(function() {
+        dashFilters.q = val;
+        dashPage = 0;
+        saveDashFilters();
+        closeColumnFilter();
+        buildDashboard(cont);
+      }, 500);
+    });
+  }
+
+  /* Close on click outside */
+  setTimeout(function() {
+    document.addEventListener("click", function closeHandler(e) {
+      if (!dd.contains(e.target)) {
+        closeColumnFilter();
+        document.removeEventListener("click", closeHandler);
+      }
+    });
+  }, 10);
+}
+
+function closeColumnFilter() {
+  var dd = document.getElementById("col-filter-dd");
+  if (dd) dd.remove();
+}
+
 
 /* ─── Modifica Offerta Modal ─── */
 
