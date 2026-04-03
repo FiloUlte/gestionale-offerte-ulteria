@@ -435,13 +435,14 @@ function buildDashboard(c) {
       /* Dettagli offerta — griglia compatta */
       h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 20px;margin-bottom:14px;font-size:13px">';
 
-      /* Col 1: Dettagli commerciali */
+      /* Col 1: Dettagli + apparecchi */
       h += '<div>';
       h += '<div style="font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Dettagli</div>';
       h += '<div>Natura: <strong>' + esc(natMap2[o.natura] || o.natura || "\u2014") + '</strong></div>';
       h += '<div>Versione: <strong>' + esc(o.versione || "A") + '</strong></div>';
-      h += '<div>Template: <strong>' + esc(o.template || "\u2014") + '</strong></div>';
       if (o.segnalatore_nome) h += '<div>Segnalatore: <strong>' + esc(o.segnalatore_nome) + '</strong></div>';
+      /* Apparecchi inline (caricati async) */
+      h += '<div id="expand-righe-' + o.id + '" style="margin-top:6px;font-size:12px;color:var(--pragma-text-muted)"></div>';
       h += '</div>';
 
       /* Col 2: Valori economici */
@@ -620,6 +621,24 @@ function attachDashEvents(c) {
       var oid = parseInt(this.getAttribute("data-oid"));
       dashExpanded = dashExpanded === oid ? null : oid;
       buildDashboard(c);
+      /* Load righe offerta for expanded row */
+      if (dashExpanded) {
+        api("GET", "/api/offerte/" + dashExpanded + "/righe").then(function(res) {
+          var el = document.getElementById("expand-righe-" + dashExpanded);
+          if (!el || !res.ok) return;
+          var righe = res.data || [];
+          if (!righe.length) { el.innerHTML = '<span style="color:var(--pragma-text-placeholder)">Nessun dettaglio apparecchi</span>'; return; }
+          var rh = '';
+          righe.forEach(function(r) {
+            var qty = r.quantita ? '<strong>' + r.quantita + '</strong> pz' : '';
+            var pr = r.prezzo_unitario ? ' x ' + fmtEurDash(r.prezzo_unitario) : '';
+            var tot = r.totale_riga ? ' = <strong>' + fmtEurDash(r.totale_riga) + '</strong>' : '';
+            var stima = r.quantita_stimata ? ' <span style="font-size:10px;background:var(--pragma-warning-bg);color:var(--pragma-warning);padding:0 4px;border-radius:3px">STIMA</span>' : '';
+            rh += '<div>' + esc(r.descrizione || '') + ' ' + qty + pr + tot + stima + '</div>';
+          });
+          el.innerHTML = rh;
+        });
+      }
     });
   });
 
@@ -1469,16 +1488,80 @@ function showNuovaOffertaModal(cont) {
         });
       } else if (val === "CL") {
         detDiv.style.display = "block";
-        detDiv.innerHTML = '<div style="font-size:.85rem;font-weight:700;margin-bottom:8px"><i data-lucide="wrench" style="width:14px;height:14px;vertical-align:-2px;color:#EF9F27"></i> Dettagli CL</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Contatori Calore</label><input class="inp" type="number" id="no-cl-ncc" /></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">N. Contatori Acqua</label><input class="inp" type="number" id="no-cl-nca" /></div>' +
-          '</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Canone Lettura &euro;/utenza/anno</label><input class="inp" type="number" step="0.01" id="no-cl-lett" /></div>' +
-          '<div class="form-field"><label style="font-size:.7rem;font-weight:700;color:var(--mid)">Centralizzazione</label><select class="inp" id="no-cl-centr"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
-          '</div>';
+        var clHtml = '<div style="font-size:.95rem;font-weight:800;margin-bottom:12px;color:var(--pragma-text-primary)"><i data-lucide="wrench" style="width:16px;height:16px;vertical-align:-3px;color:#1B5E8C"></i> Dettagli Commessa Lavori</div>';
+
+        /* Contatore Energia */
+        clHtml += '<div style="background:#F0F7FC;border-radius:10px;padding:12px;margin-bottom:10px">';
+        clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1B5E8C"><i data-lucide="flame" style="width:14px;height:14px;vertical-align:-2px"></i> Contatore Energia</div>';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Tipo</label><select class="inp" id="no-cl-en-tipo" style="font-size:13px;padding:7px 10px"><option value="risc">Riscaldamento</option><option value="raffr">Raffrescamento</option><option value="risc_raffr">Risc. + Raffr.</option></select></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-en-pz" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-en-pr" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-en-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="mbus">M-Bus</option><option value="modbus">Mod-Bus</option></select></div>';
+        clHtml += '</div></div>';
+
+        /* Contatori Acqua Calda */
+        clHtml += '<div style="background:#FEF5F0;border-radius:10px;padding:12px;margin-bottom:10px">';
+        clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#B45309"><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:-2px;color:#DC6B2F"></i> Contatori Acqua Calda</div>';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-acs-pz" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-acs-pr" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-acs-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="impulso">Impulso</option><option value="mbus">M-Bus</option></select></div>';
+        clHtml += '</div></div>';
+
+        /* Contatori Acqua Fredda */
+        clHtml += '<div style="background:#F0F5FC;border-radius:10px;padding:12px;margin-bottom:10px">';
+        clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1B5E8C"><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:-2px;color:#009FE3"></i> Contatori Acqua Fredda</div>';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-afs-pz" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-afs-pr" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-afs-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="impulso">Impulso</option><option value="mbus">M-Bus</option></select></div>';
+        clHtml += '</div></div>';
+
+        /* Servizi + Centralizzazione */
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Canone Lettura &euro;/utenza/anno</label><input class="inp" type="number" step="0.01" id="no-cl-lett" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">N. Utenze</label><input class="inp" type="number" id="no-cl-nutenze" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '</div>';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Ulteria Care &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-cl-care" style="font-size:13px;padding:7px 10px" /></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Centralizzazione</label><select class="inp" id="no-cl-centr" style="font-size:13px;padding:7px 10px"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>';
+        clHtml += '</div>';
+
+        /* Riepilogo live CL */
+        clHtml += '<div id="no-cl-riepilogo" style="background:#fff;border:1px solid var(--pragma-border-default);border-radius:8px;padding:10px;margin-top:10px;font-size:13px"></div>';
+
+        detDiv.innerHTML = clHtml;
         icons();
+
+        /* Live calc CL */
+        function calcCL() {
+          var enPz = parseInt(document.getElementById("no-cl-en-pz").value) || 0;
+          var enPr = parseFloat(document.getElementById("no-cl-en-pr").value) || 0;
+          var acsPz = parseInt(document.getElementById("no-cl-acs-pz").value) || 0;
+          var acsPr = parseFloat(document.getElementById("no-cl-acs-pr").value) || 0;
+          var afsPz = parseInt(document.getElementById("no-cl-afs-pz").value) || 0;
+          var afsPr = parseFloat(document.getElementById("no-cl-afs-pr").value) || 0;
+          var lett = parseFloat(document.getElementById("no-cl-lett").value) || 0;
+          var nutenze = parseInt(document.getElementById("no-cl-nutenze").value) || 0;
+          var care = parseFloat(document.getElementById("no-cl-care").value) || 0;
+          var totForn = (enPz * enPr) + (acsPz * acsPr) + (afsPz * afsPr);
+          var totApp = enPz + acsPz + afsPz;
+          var totAnnuo = (lett * nutenze) + (care * totApp);
+          var rh = '<strong>Riepilogo CL:</strong><br>';
+          if (enPz) rh += 'Contatore energia: <strong>' + enPz + '</strong> pz x ' + fmtEurDash(enPr) + '<br>';
+          if (acsPz) rh += 'Acqua calda: <strong>' + acsPz + '</strong> pz x ' + fmtEurDash(acsPr) + '<br>';
+          if (afsPz) rh += 'Acqua fredda: <strong>' + afsPz + '</strong> pz x ' + fmtEurDash(afsPr) + '<br>';
+          rh += 'Totale fornitura: <strong>' + fmtEurDash(totForn) + '</strong>';
+          if (totAnnuo > 0) rh += '<br>Canone annuo: <strong>' + fmtEurDash(totAnnuo) + '/anno</strong>';
+          document.getElementById("no-cl-riepilogo").innerHTML = rh;
+          document.getElementById("no-valore").value = totForn || "";
+          document.getElementById("no-annuo").value = totAnnuo || "";
+        }
+        ["no-cl-en-pz","no-cl-en-pr","no-cl-acs-pz","no-cl-acs-pr","no-cl-afs-pz","no-cl-afs-pr","no-cl-lett","no-cl-nutenze","no-cl-care"].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener("input", calcCL);
+        });
       } else {
         detDiv.style.display = "none";
       }
