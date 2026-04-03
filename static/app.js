@@ -295,11 +295,16 @@ function buildDashboard(c) {
     if (cd.key === "agente_id" && dashFilters.agente_id) isFiltered = true;
     if (cd.key === "tipologia" && (dashFilters.macro_cat || dashFilters.tipo_servizio)) isFiltered = true;
 
+    var skipCols = { checkbox: 1, elimina: 1 };
     var filterIcon = '';
-    if (sortable[cd.key] || filterableCols[cd.key]) {
+    if (!skipCols[cd.key] && (sortable[cd.key] || filterableCols[cd.key])) {
       filterIcon = '<i data-lucide="' + (isFiltered ? "filter" : "chevron-down") + '" style="width:12px;height:12px;opacity:' + (isFiltered ? "1" : "0.4") + ';margin-left:4px;vertical-align:-1px' + (isFiltered ? ";color:#009FE3" : "") + '"></i>';
     }
-    h += '<th style="width:' + cd.w + ';cursor:pointer" data-col-header="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + filterIcon + "</th>";
+    if (skipCols[cd.key]) {
+      h += '<th style="width:' + cd.w + '" class="' + (cd.cls || "") + '">' + label + "</th>";
+    } else {
+      h += '<th style="width:' + cd.w + ';cursor:pointer" data-col-header="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + filterIcon + "</th>";
+    }
   });
   h += "</tr></thead><tbody>";
 
