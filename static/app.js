@@ -1176,11 +1176,34 @@ var _noAcClienti = [];
 var _noTipo = "";
 var _noMacro = "";
 
+var _noModelli = [];
+
 function showNuovaOffertaModal(cont) {
   closeModal();
   _noTipo = "";
   _noMacro = "";
 
+  /* Load modelli before opening modal */
+  api("GET", "/api/modelli").then(function(res) {
+    _noModelli = (res && res.data) ? res.data : (res || []);
+    _buildNuovaOffertaModal(cont);
+  }).catch(function() {
+    _noModelli = [];
+    _buildNuovaOffertaModal(cont);
+  });
+}
+
+function _modelloSelect(id, categoria, style) {
+  var filtered = _noModelli.filter(function(m) { return m.categoria === categoria && m.attivo; });
+  var h = '<select class="inp" id="' + id + '" style="' + (style || "font-size:13px;padding:7px 10px") + '"><option value="">-- Modello --</option>';
+  filtered.forEach(function(m) {
+    h += '<option value="' + esc(m.nome) + '">' + esc(m.nome) + '</option>';
+  });
+  h += '</select>';
+  return h;
+}
+
+function _buildNuovaOffertaModal(cont) {
   var overlay = document.createElement("div");
   overlay.className = "modal-overlay show";
   overlay.id = "modal-overlay";
@@ -1441,7 +1464,7 @@ function showNuovaOffertaModal(cont) {
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="heater" style="width:12px;height:12px;color:#EF9F27;vertical-align:-2px"></i> N. Ripartitori</label><input class="inp" type="number" id="no-ck-nrip" style="font-size:.9rem;padding:8px 12px" /></div>' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Prezzo Rip. &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-prip" style="font-size:.9rem;padding:8px 12px" /></div>' +
-          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Modello Rip.</label><select class="inp" id="no-ck-mod" style="font-size:.85rem;padding:8px 12px"><option>E-ITN40</option><option>Q5.5</option></select></div>' +
+          '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello Rip.</label>' + _modelloSelect("no-ck-mod", "ripartitore", "font-size:13px;padding:7px 10px") + '</div>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="radio" style="width:12px;height:12px;color:#639922;vertical-align:-2px"></i> Canone Lettura &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-ck-lett" style="font-size:.9rem;padding:8px 12px" /></div>' +
@@ -1449,7 +1472,9 @@ function showNuovaOffertaModal(cont) {
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="wifi" style="width:12px;height:12px;color:#534AB7;vertical-align:-2px"></i> Centralizzazione</label><select class="inp" id="no-ck-centr" style="font-size:.85rem;padding:8px 12px"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>' +
-          '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)"><i data-lucide="droplets" style="width:12px;height:12px;color:#ef4444;vertical-align:-2px"></i> N. Contatori Acqua</label><input class="inp" type="number" id="no-ck-nacq" placeholder="0 se assenti" style="font-size:.85rem;padding:8px 12px" /></div>' +
+          '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)"><i data-lucide="droplets" style="width:12px;height:12px;color:#009FE3;vertical-align:-2px"></i> N. Cont. Acqua</label><input class="inp" type="number" id="no-ck-nacq" placeholder="0" style="font-size:13px;padding:7px 10px" /></div>' +
+          '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello Cont. Acqua</label>' + _modelloSelect("no-ck-mod-acq", "contatore_acqua") + '</div>' +
+          '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo Cont. Acqua &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-pacq" style="font-size:13px;padding:7px 10px" /></div>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
           '<div class="form-field"><label style="font-size:.78rem;font-weight:700;color:var(--mid)">Prezzo Cont. Acqua &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-ck-pacq" style="font-size:.85rem;padding:8px 12px" /></div>' +
@@ -1493,8 +1518,9 @@ function showNuovaOffertaModal(cont) {
         /* Contatore Energia */
         clHtml += '<div style="background:#F0F7FC;border-radius:10px;padding:12px;margin-bottom:10px">';
         clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1B5E8C"><i data-lucide="flame" style="width:14px;height:14px;vertical-align:-2px"></i> Contatore Energia</div>';
-        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px">';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Tipo</label><select class="inp" id="no-cl-en-tipo" style="font-size:13px;padding:7px 10px"><option value="risc">Riscaldamento</option><option value="raffr">Raffrescamento</option><option value="risc_raffr">Risc. + Raffr.</option></select></div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello</label>' + _modelloSelect("no-cl-en-mod", "contatore_calore") + '</div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-en-pz" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-en-pr" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-en-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="mbus">M-Bus</option><option value="modbus">Mod-Bus</option></select></div>';
@@ -1503,7 +1529,8 @@ function showNuovaOffertaModal(cont) {
         /* Contatori Acqua Calda */
         clHtml += '<div style="background:#FEF5F0;border-radius:10px;padding:12px;margin-bottom:10px">';
         clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#B45309"><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:-2px;color:#DC6B2F"></i> Contatori Acqua Calda</div>';
-        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello</label>' + _modelloSelect("no-cl-acs-mod", "contatore_acqua") + '</div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-acs-pz" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-acs-pr" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-acs-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="impulso">Impulso</option><option value="mbus">M-Bus</option></select></div>';
@@ -1512,7 +1539,8 @@ function showNuovaOffertaModal(cont) {
         /* Contatori Acqua Fredda */
         clHtml += '<div style="background:#F0F5FC;border-radius:10px;padding:12px;margin-bottom:10px">';
         clHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1B5E8C"><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:-2px;color:#009FE3"></i> Contatori Acqua Fredda</div>';
-        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello</label>' + _modelloSelect("no-cl-afs-mod", "contatore_acqua") + '</div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Pezzi</label><input class="inp" type="number" id="no-cl-afs-pz" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Prezzo &euro;/cad</label><input class="inp" type="number" step="0.01" id="no-cl-afs-pr" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Trasmissione</label><select class="inp" id="no-cl-afs-tr" style="font-size:13px;padding:7px 10px"><option value="radio">Radio</option><option value="impulso">Impulso</option><option value="mbus">M-Bus</option></select></div>';
@@ -1526,6 +1554,10 @@ function showNuovaOffertaModal(cont) {
         clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Ulteria Care &euro;/app/anno</label><input class="inp" type="number" step="0.01" id="no-cl-care" style="font-size:13px;padding:7px 10px" /></div>';
         clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Centralizzazione</label><select class="inp" id="no-cl-centr" style="font-size:13px;padding:7px 10px"><option value="comodato">Comodato</option><option value="vendita">Vendita</option></select></div>';
+        clHtml += '</div>';
+        clHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello Concentratore</label>' + _modelloSelect("no-cl-centr-mod", "concentratore") + '</div>';
+        clHtml += '<div class="form-field"><label style="font-size:11px;font-weight:600;color:var(--pragma-text-muted)">Modello Concentr. M-Bus</label>' + _modelloSelect("no-cl-centr-mbus", "concentratore_mbus") + '</div>';
         clHtml += '</div>';
 
         /* Riepilogo live CL */
