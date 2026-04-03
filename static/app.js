@@ -23,7 +23,7 @@ var wizardData = {
 var STATI = [
   { value: "richiamato", label: "Richiamato", color: "#f59e0b", cls: "stato-richiamato" },
   { value: "in_attesa_assemblea", label: "In Attesa Assemblea", color: "#0ea5e9", cls: "stato-in_attesa_assemblea" },
-  { value: "preso_lavoro", label: "Preso Lavoro", color: "#22c55e", cls: "stato-preso_lavoro" },
+  { value: "preso_lavoro", label: "Preso", color: "#22c55e", cls: "stato-preso_lavoro" },
   { value: "perso", label: "Perso", color: "#ef4444", cls: "stato-perso" },
   { value: "rimandato", label: "Rimandato", color: "#7c3aed", cls: "stato-rimandato" }
 ];
@@ -330,7 +330,8 @@ function buildDashboard(c) {
     var isExp = dashExpanded === o.id;
     var urgentCls = (gg !== null && gg > 30) ? " row-urgent" : "";
 
-    h += '<tr data-oid="' + o.id + '" class="' + (isSel ? "row-selected" : "") + urgentCls + '">';
+    var presoCls = o.stato === "preso_lavoro" ? " row-preso" : "";
+    h += '<tr data-oid="' + o.id + '" class="' + (isSel ? "row-selected" : "") + urgentCls + presoCls + '">';
     h += '<td><input type="checkbox" class="row-sel" data-sel-id="' + o.id + '"' + (isSel ? " checked" : "") + " /></td>";
 
     /* N. Offerta (merged with versione) + chevron expand icon */
@@ -346,8 +347,8 @@ function buildDashboard(c) {
     }
     /* Studio / Cliente */
     if (dashVisibleCols.indexOf("nome_studio") >= 0) {
-      h += '<td class="editable" data-field="nome_studio"><div style="font-size:13px;font-weight:500">' + esc(o.nome_studio || "") + "</div>";
-      if (o.cliente_tipo) h += '<div><span style="font-size:10px;font-weight:600;color:var(--pragma-text-muted)">' + esc(o.cliente_tipo) + "</span></div>";
+      h += '<td><div style="font-size:13px;font-weight:500">' + esc(o.nome_studio || "") + "</div>";
+      if (o.cliente_tipo) h += '<div><span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;border:1px solid var(--pragma-border-default);color:var(--pragma-text-muted)">' + esc(o.cliente_tipo) + "</span></div>";
       h += "</td>";
     }
     /* Riferimento (oggetto via + comune) */
@@ -914,7 +915,7 @@ function showColumnFilterDropdown(col, thEl, cont) {
     var stati = [
       { val: "richiamato", label: "Richiamato" },
       { val: "in_attesa_assemblea", label: "In Attesa Assemblea" },
-      { val: "preso_lavoro", label: "Preso Lavoro" },
+      { val: "preso_lavoro", label: "Preso" },
       { val: "perso", label: "Perso" },
       { val: "rimandato", label: "Rimandato" }
     ];
@@ -1097,7 +1098,7 @@ function showEditOffertaModal(off, cont) {
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Macro Categoria</label><select class="inp" id="eo-macro" style="font-size:.88rem;padding:9px 12px"><option value="">--</option><option value="installazione"' + (off.macro_categoria === 'installazione' ? ' selected' : '') + '>Installazione</option><option value="servizi"' + (off.macro_categoria === 'servizi' ? ' selected' : '') + '>Servizi</option><option value="cc_modus"' + (off.macro_categoria === 'cc_modus' ? ' selected' : '') + '>CC-Modus</option><option value="cu_unitron"' + (off.macro_categoria === 'cu_unitron' ? ' selected' : '') + '>CU-Unitron</option><option value="fornitura"' + (off.macro_categoria === 'fornitura' ? ' selected' : '') + '>Fornitura</option><option value="interventi"' + (off.macro_categoria === 'interventi' ? ' selected' : '') + '>Interventi</option></select></div>';
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Sottotipo</label><input class="inp" id="eo-sottotipo" value="' + esc(off.sottotipo || '') + '" placeholder="CK, CL, RK, RD..." style="font-size:.88rem;padding:9px 12px" /></div>';
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Natura</label><select class="inp" id="eo-natura" style="font-size:.88rem;padding:9px 12px"><option value="nuovo"' + (off.natura === 'nuovo' ? ' selected' : '') + '>Nuovo</option><option value="rinnovo"' + (off.natura === 'rinnovo' ? ' selected' : '') + '>Rinnovo</option><option value="subentro_diretto"' + (off.natura === 'subentro_diretto' ? ' selected' : '') + '>Subentro Diretto</option><option value="subentro_intermediario"' + (off.natura === 'subentro_intermediario' ? ' selected' : '') + '>Subentro Intermediario</option></select></div>';
-  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="eo-stato" style="font-size:.88rem;padding:9px 12px"><option value="richiamato"' + (off.stato === 'richiamato' ? ' selected' : '') + '>Richiamato</option><option value="in_attesa_assemblea"' + (off.stato === 'in_attesa_assemblea' ? ' selected' : '') + '>In Attesa Assemblea</option><option value="preso_lavoro"' + (off.stato === 'preso_lavoro' ? ' selected' : '') + '>Preso Lavoro</option><option value="perso"' + (off.stato === 'perso' ? ' selected' : '') + '>Perso</option><option value="rimandato"' + (off.stato === 'rimandato' ? ' selected' : '') + '>Rimandato</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="eo-stato" style="font-size:.88rem;padding:9px 12px"><option value="richiamato"' + (off.stato === 'richiamato' ? ' selected' : '') + '>Richiamato</option><option value="in_attesa_assemblea"' + (off.stato === 'in_attesa_assemblea' ? ' selected' : '') + '>In Attesa Assemblea</option><option value="preso_lavoro"' + (off.stato === 'preso_lavoro' ? ' selected' : '') + '>Preso</option><option value="perso"' + (off.stato === 'perso' ? ' selected' : '') + '>Perso</option><option value="rimandato"' + (off.stato === 'rimandato' ? ' selected' : '') + '>Rimandato</option></select></div>';
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="eo-valore" value="' + (off.valore_commessa || off.importo || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="eo-annuo" value="' + (off.importo_servizio_annuo || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
   bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Email</label><input class="inp" id="eo-email" value="' + esc(off.email_studio || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';

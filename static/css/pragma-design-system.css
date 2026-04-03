@@ -738,3 +738,7 @@ input.inp:focus, select.inp:focus, textarea.inp:focus {
 
 /* Cestino riga — hover rosso */
 .act-del:hover { opacity: 1 !important; color: var(--pragma-danger) !important; }
+
+/* Riga preso — sfondo verde tenue */
+.row-preso td { background: rgba(99,153,34,0.06) !important; }
+.row-preso:hover td { background: rgba(99,153,34,0.10) !important; }
