@@ -611,3 +611,127 @@
   color: #fff;
   border-color: transparent;
 }
+
+
+/* ─── OVERRIDE STILI ESISTENTI (sovrascrive style.css) ─── */
+
+/* App shell */
+.app { font-family: var(--pragma-font); }
+.sidebar { width: 220px; min-width: 220px; }
+
+/* Topbar */
+.topbar {
+  background: var(--pragma-bg-card);
+  border-bottom: 0.5px solid var(--pragma-border-light);
+  padding: 0 var(--pragma-space-lg);
+  height: 48px;
+}
+
+.bc { font-size: 12px; color: var(--pragma-text-muted); }
+.bc strong { color: var(--pragma-text-primary); font-weight: 600; font-size: 13px; }
+
+/* Content area */
+.content { padding: var(--pragma-space-lg); background: var(--pragma-bg-page); }
+
+/* Cards */
+.card, .card-0 {
+  border-radius: var(--pragma-radius-lg);
+  border-color: var(--pragma-border-default);
+  box-shadow: var(--pragma-shadow-sm);
+}
+
+/* Existing kpi override */
+.kpi {
+  border-radius: var(--pragma-radius-lg);
+  border-color: var(--pragma-border-default);
+  box-shadow: var(--pragma-shadow-sm);
+}
+
+/* Table override */
+table.tbl th {
+  background: var(--pragma-text-primary);
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+}
+
+table.tbl th:first-child { border-radius: var(--pragma-radius-md) 0 0 0; }
+table.tbl th:last-child { border-radius: 0 var(--pragma-radius-md) 0 0; }
+
+table.tbl td {
+  padding: 11px 14px;
+  font-size: 13px;
+  border-bottom-color: var(--pragma-border-light);
+}
+
+table.tbl tr:hover td { background: var(--pragma-blue-lighter); }
+
+/* Input override */
+input.inp, select.inp, textarea.inp {
+  border-color: var(--pragma-border-default);
+  border-radius: var(--pragma-radius-md);
+  font-size: 14px;
+  padding: 9px 14px;
+}
+
+input.inp:focus, select.inp:focus, textarea.inp:focus {
+  border-color: var(--pragma-blue);
+  box-shadow: 0 0 0 3px rgba(0,159,227,0.12);
+}
+
+/* Button override */
+.btn {
+  border-radius: var(--pragma-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  transition: var(--pragma-transition);
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary { background: var(--pragma-blue); }
+.btn-primary:hover { background: var(--pragma-blue-dark); }
+
+/* Badge override */
+.badge {
+  border-radius: var(--pragma-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Modal override */
+.modal-overlay { background: rgba(13,31,53,0.5); backdrop-filter: blur(2px); }
+.modal { border-radius: var(--pragma-radius-xl); box-shadow: var(--pragma-shadow-lg); }
+.modal-header { border-bottom-color: var(--pragma-border-light); }
+.modal-footer { border-top-color: var(--pragma-border-light); }
+
+/* Stato badges — using new design system colors */
+.stato-richiamato { background: var(--pragma-stato-richiamato-bg); color: var(--pragma-stato-richiamato); }
+.stato-in_attesa_assemblea { background: var(--pragma-stato-attesa-bg); color: var(--pragma-stato-attesa); }
+.stato-preso_lavoro { background: var(--pragma-stato-preso-bg); color: var(--pragma-stato-preso); }
+.stato-perso { background: var(--pragma-stato-perso-bg); color: var(--pragma-stato-perso); }
+.stato-rimandato { background: var(--pragma-stato-rimandato-bg); color: var(--pragma-stato-rimandato); }
+
+/* Row expanded panel */
+.expand-panel {
+  background: rgba(0,159,227,0.03);
+  border-left: 3px solid var(--pragma-blue);
+  padding: 16px 20px 16px 32px;
+}
+
+/* Giorni badges */
+.giorni-verde { background: var(--pragma-success-bg); color: var(--pragma-success); }
+.giorni-arancione { background: var(--pragma-warning-bg); color: var(--pragma-warning); }
+.giorni-rosso { background: var(--pragma-danger-bg); color: var(--pragma-danger); }
+
+/* Cell edit */
+.cell-edit {
+  border-color: var(--pragma-blue);
+  border-radius: var(--pragma-radius-sm);
+  font-size: 13px;
+}
+
+.cell-edit:focus {
+  box-shadow: 0 0 0 2px rgba(0,159,227,0.15);
+}
