@@ -299,7 +299,7 @@ function buildDashboard(c) {
     if (sortable[cd.key] || filterableCols[cd.key]) {
       filterIcon = '<i data-lucide="' + (isFiltered ? "filter" : "chevron-down") + '" style="width:12px;height:12px;opacity:' + (isFiltered ? "1" : "0.4") + ';margin-left:4px;vertical-align:-1px' + (isFiltered ? ";color:#009FE3" : "") + '"></i>';
     }
-    h += '<th style="width:' + cd.w + ';cursor:pointer;position:relative" data-col-header="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + filterIcon + "</th>";
+    h += '<th style="width:' + cd.w + ';cursor:pointer" data-col-header="' + cd.key + '" class="' + (cd.cls || "") + '">' + label + arrow + filterIcon + "</th>";
   });
   h += "</tr></thead><tbody>";
 
@@ -858,10 +858,10 @@ function showColumnFilterDropdown(col, thEl, cont) {
 
   /* Sort options — always available */
   h += '<div style="padding:4px 12px;font-size:11px;font-weight:600;color:var(--pragma-text-muted);text-transform:uppercase;letter-spacing:.5px">Ordina</div>';
-  h += '<div class="cfd-item" data-cfd-sort="asc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s"><i data-lucide="arrow-up" style="width:14px;height:14px"></i> Crescente</div>';
-  h += '<div class="cfd-item" data-cfd-sort="desc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s"><i data-lucide="arrow-down" style="width:14px;height:14px"></i> Decrescente</div>';
+  h += '<div class="cfd-item" data-cfd-sort="asc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s">\u2191 Crescente</div>';
+  h += '<div class="cfd-item" data-cfd-sort="desc" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .1s">\u2193 Decrescente</div>';
   if (dashSort.col === col) {
-    h += '<div class="cfd-item" data-cfd-sort="clear" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--pragma-danger);transition:background .1s"><i data-lucide="x" style="width:14px;height:14px"></i> Rimuovi ordinamento</div>';
+    h += '<div class="cfd-item" data-cfd-sort="clear" style="padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--pragma-danger);transition:background .1s">\u2716 Rimuovi ordinamento</div>';
   }
 
   /* Filter options — depends on column */
@@ -880,7 +880,7 @@ function showColumnFilterDropdown(col, thEl, cont) {
       h += '<label class="cfd-item" style="padding:6px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s"><input type="checkbox" data-cfd-stato="' + s.val + '"' + (checked ? " checked" : "") + ' /> ' + s.label + '</label>';
     });
     if (dashFilters.stati.length > 0) {
-      h += '<div class="cfd-item" data-cfd-clear-stato="1" style="padding:7px 14px;cursor:pointer;color:var(--pragma-danger);display:flex;align-items:center;gap:6px"><i data-lucide="x" style="width:14px;height:14px"></i> Rimuovi filtro stato</div>';
+      h += '<div class="cfd-item" data-cfd-clear-stato="1" style="padding:7px 14px;cursor:pointer;color:var(--pragma-danger);display:flex;align-items:center;gap:6px">\u2716 Rimuovi filtro stato</div>';
     }
   }
 
@@ -918,7 +918,6 @@ function showColumnFilterDropdown(col, thEl, cont) {
 
   dd.innerHTML = h;
   document.body.appendChild(dd);
-  icons();
 
   /* Add hover style to items */
   dd.querySelectorAll(".cfd-item").forEach(function(item) {
