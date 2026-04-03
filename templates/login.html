@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ulteria — Login</title>
+  <title>Pragma — Login</title>
   <link rel="icon" href="data:,">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -25,14 +25,17 @@
 </head>
 <body>
   <div class="login-card">
-    <div class="logo"><div class="logo-dot">U</div><div class="logo-name">Ulteria</div></div>
+    <div class="logo">
+      <svg width="36" height="36" viewBox="0 0 120 120"><rect width="120" height="120" rx="16" fill="#009FE3"/><rect x="22" y="30" width="76" height="10" rx="5" fill="white"/><rect x="32" y="40" width="10" height="48" rx="5" fill="white"/><rect x="78" y="40" width="10" height="48" rx="5" fill="white"/></svg>
+      <div class="logo-name">PRAGMA</div>
+    </div>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST" action="/login">
       <div class="field"><label>Email</label><input type="email" name="email" required autofocus /></div>
       <div class="field"><label>Password</label><input type="password" name="password" required /></div>
       <button type="submit" class="btn">Accedi</button>
     </form>
-    <div class="sub">Gestionale Commerciale Ulteria v2.0</div>
+    <div class="sub">Gestionale Commerciale Ulteria</div>
   </div>
 </body>
 </html>
