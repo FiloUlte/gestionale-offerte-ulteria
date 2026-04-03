@@ -125,8 +125,8 @@ var dashExpanded = null;
 var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
-var ALL_COLS = ["checkbox","numero","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","elimina"];
-var COL_LABELS = {checkbox:"",numero:"N.",nome_studio:"Cliente",riferimento:"Riferimento",tipologia:"Tipo",valore:"Valore",agente_id:"Ag.",stato:"Stato",giorni:"Gg",elimina:""};
+var ALL_COLS = ["checkbox","numero","data_creazione","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","elimina"];
+var COL_LABELS = {checkbox:"",numero:"N.",data_creazione:"Data",nome_studio:"Cliente",riferimento:"Riferimento",tipologia:"Tipo",valore:"Valore",agente_id:"Ag.",stato:"Stato",giorni:"Gg",elimina:""};
 
 function loadDashFilters() {
   try {
@@ -141,7 +141,10 @@ function saveDashFilters() {
 }
 
 function renderDashboard(c) {
-  if (!dashFilters) dashFilters = loadDashFilters();
+  if (!dashFilters) {
+    dashFilters = loadDashFilters();
+    dashFilters.macro_cat = ""; /* Never start with a card pre-selected */
+  }
   if (!dashVisibleCols) {
     try { var s = localStorage.getItem("dashCols"); if (s) dashVisibleCols = JSON.parse(s); } catch (e) { /* */ }
     if (!dashVisibleCols) dashVisibleCols = ALL_COLS.slice();
@@ -273,9 +276,9 @@ function buildDashboard(c) {
   h += '<div class="card-0"><div class="scx"><table class="tbl" id="dash-tbl"><thead><tr>';
   h += '<th style="width:40px"><input type="checkbox" id="sel-all" /></th>';
 
-  var sortable = { numero: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1, giorni: 1 };
+  var sortable = { numero: 1, data_creazione: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1, giorni: 1 };
   var colDefs = [
-    { key: "numero", w: "70px" },
+    { key: "numero", w: "70px" }, { key: "data_creazione", w: "80px" },
     { key: "nome_studio", w: "auto" }, { key: "riferimento", w: "auto" },
     { key: "tipologia", w: "65px" },
     { key: "valore", w: "90px", cls: "r" },
@@ -336,6 +339,10 @@ function buildDashboard(c) {
       if (o.versione && o.versione !== "A") numDisp = numDisp + "-" + o.versione;
       var chevIcon = isExp ? "chevron-down" : "chevron-right";
       h += '<td class="mono" style="cursor:pointer"><i data-lucide="' + chevIcon + '" style="width:14px;height:14px;vertical-align:-2px;color:var(--blue);margin-right:4px"></i>' + numDisp + "</td>";
+    }
+    /* Data */
+    if (dashVisibleCols.indexOf("data_creazione") >= 0) {
+      h += '<td style="font-size:12px;color:var(--pragma-text-muted)">' + fmtData(o.data_creazione) + "</td>";
     }
     /* Studio / Cliente */
     if (dashVisibleCols.indexOf("nome_studio") >= 0) {
