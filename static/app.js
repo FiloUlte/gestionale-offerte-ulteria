@@ -849,9 +849,10 @@ function showMotivoPerdita(oid, oldStato, cont) {
 function showColumnFilterDropdown(col, thEl, cont) {
   closeColumnFilter();
 
+  var rect = thEl.getBoundingClientRect();
   var dd = document.createElement("div");
   dd.id = "col-filter-dd";
-  dd.style.cssText = "position:absolute;top:100%;left:0;min-width:200px;max-width:280px;background:#fff;border:1px solid var(--pragma-border-default);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:200;padding:8px 0;max-height:320px;overflow-y:auto;font-size:13px";
+  dd.style.cssText = "position:fixed;top:" + (rect.bottom + 2) + "px;left:" + rect.left + "px;min-width:200px;max-width:280px;background:#fff;border:1px solid var(--pragma-border-default);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.15);z-index:1000;padding:8px 0;max-height:320px;overflow-y:auto;font-size:13px";
 
   var h = "";
 
@@ -916,8 +917,7 @@ function showColumnFilterDropdown(col, thEl, cont) {
   }
 
   dd.innerHTML = h;
-  thEl.style.position = "relative";
-  thEl.appendChild(dd);
+  document.body.appendChild(dd);
   icons();
 
   /* Add hover style to items */
