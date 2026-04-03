@@ -1022,10 +1022,11 @@ function showNuovaOffertaModal(cont) {
   modal.style.width = "800px";
   modal.style.maxHeight = "92vh";
   modal.style.overflowY = "auto";
+  modal.style.borderRadius = "14px";
 
   var header = document.createElement("div");
   header.className = "modal-header";
-  header.innerHTML = "<h2>Nuova Offerta</h2>";
+  header.innerHTML = '<h2>Nuova Offerta</h2><button class="btn btn-ghost btn-sm" id="no-close-x"><i data-lucide="x" style="width:18px;height:18px"></i></button>';
 
   var body = document.createElement("div");
   body.className = "modal-body";
@@ -1065,6 +1066,8 @@ function showNuovaOffertaModal(cont) {
   bh += '<input class="inp" id="no-cli-citta" placeholder="Citta cliente" style="font-size:.85rem;padding:8px 12px" />';
   bh += '<input class="inp" id="no-cli-email" placeholder="Email" style="font-size:.85rem;padding:8px 12px" />';
   bh += '<input class="inp" id="no-cli-tel" placeholder="Telefono" style="font-size:.85rem;padding:8px 12px" />';
+  bh += '<select class="inp" id="no-cli-tipo" style="font-size:.85rem;padding:8px 12px"><option value="Amministratore">Amministratore</option><option value="Gestore">Gestore</option><option value="Costruttore">Costruttore</option><option value="Progettista">Progettista</option><option value="Condomino">Condomino</option><option value="Rivenditore">Rivenditore</option></select>';
+  bh += '<input class="inp" id="no-cli-referente" placeholder="Referente" style="font-size:.85rem;padding:8px 12px" />';
   bh += "</div></div>";
 
   /* ── SEZIONE 2: Riferimento ── */
@@ -1150,6 +1153,10 @@ function showNuovaOffertaModal(cont) {
 
   /* ── Events ── */
   /* uses global _noTipo, _noMacro */
+
+  /* Close X button */
+  var closeX = document.getElementById("no-close-x");
+  if (closeX) closeX.addEventListener("click", closeModal);
 
   /* Client autocomplete */
   var studioInp = document.getElementById("no-studio");
@@ -1361,7 +1368,9 @@ function showNuovaOffertaModal(cont) {
         via: document.getElementById("no-cli-via").value,
         citta: document.getElementById("no-cli-citta").value,
         email: document.getElementById("no-cli-email").value,
-        telefono: document.getElementById("no-cli-tel").value
+        telefono: document.getElementById("no-cli-tel").value,
+        tipo_cliente: document.getElementById("no-cli-tipo").value,
+        referente: document.getElementById("no-cli-referente").value
       });
     } else {
       clientePromise = Promise.resolve(null);
