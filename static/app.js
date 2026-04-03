@@ -521,14 +521,14 @@ function loadKpiCards() {
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><i data-lucide="' + def.icon + '" style="width:16px;height:16px;color:' + def.color + '"></i><span style="font-size:11px;font-weight:700;color:' + def.color + ';text-transform:uppercase;letter-spacing:.5px">' + def.label + '</span></div>' +
         /* Conteggi */
         '<div style="display:flex;gap:6px;font-size:12px;margin-bottom:10px">' +
-          '<span style="background:var(--pragma-neutral-bg);padding:2px 8px;border-radius:20px">Inviate <strong>' + k.inviate + '</strong></span>' +
-          '<span style="background:var(--pragma-success-bg);color:var(--pragma-success);padding:2px 8px;border-radius:20px">Prese <strong>' + k.prese + '</strong></span>' +
-          (k.prospect > 0 ? '<span style="background:var(--pragma-warning-bg);color:var(--pragma-warning);padding:2px 8px;border-radius:20px">Aperte <strong>' + k.prospect + '</strong></span>' : '') +
+          '<span style="background:#E4ECF2;color:#4A6274;padding:2px 8px;border-radius:20px">Inviate <strong>' + k.inviate + '</strong></span>' +
+          '<span style="background:' + def.color + '22;color:' + def.color + ';padding:2px 8px;border-radius:20px">Prese <strong>' + k.prese + '</strong></span>' +
+          (k.prospect > 0 ? '<span style="background:#E8F2FA;color:#3D5A73;padding:2px 8px;border-radius:20px">Aperte <strong>' + k.prospect + '</strong></span>' : '') +
         '</div>' +
         /* Valori */
         '<div style="display:flex;gap:16px;margin-bottom:8px">' +
-          '<div><div style="font-size:10px;color:var(--pragma-success);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Confermato</div><div style="font-size:16px;font-weight:800;color:var(--pragma-success)">' + fmtEurDash(valPreso) + suffix + '</div></div>' +
-          (valProspect > 0 ? '<div><div style="font-size:10px;color:var(--pragma-warning);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Potenziale</div><div style="font-size:16px;font-weight:800;color:var(--pragma-warning)">' + fmtEurDash(valProspect) + suffix + '</div></div>' : '') +
+          '<div><div style="font-size:10px;color:' + def.color + ';font-weight:600;text-transform:uppercase;letter-spacing:.5px">Confermato</div><div style="font-size:16px;font-weight:800;color:var(--pragma-text-primary)">' + fmtEurDash(valPreso) + suffix + '</div></div>' +
+          (valProspect > 0 ? '<div><div style="font-size:10px;color:#6B8BA4;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Potenziale</div><div style="font-size:16px;font-weight:800;color:#6B8BA4">' + fmtEurDash(valProspect) + suffix + '</div></div>' : '') +
         '</div>' +
         /* Barra conversione */
         '<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;background:var(--pragma-border-light);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + tasso + '%;background:' + def.color + ';border-radius:2px"></div></div><span style="font-size:11px;font-weight:700;color:var(--pragma-text-muted)">' + tasso + '%</span></div>' +
