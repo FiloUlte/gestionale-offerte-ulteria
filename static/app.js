@@ -354,19 +354,20 @@ function buildDashboard(c) {
     }
     /* Tipologia (sottotipo badge) */
     if (dashVisibleCols.indexOf("tipologia") >= 0) {
+      /* Colori coerenti: famiglia blu/navy/petrolio */
       var tipoColorMap = {
-        "CK": { bg: "var(--pragma-ck-bg)", color: "var(--pragma-ck)" },
-        "CL": { bg: "var(--pragma-cl-bg)", color: "var(--pragma-cl)" },
-        "RK": { bg: "var(--pragma-rk-bg)", color: "var(--pragma-rk)" },
-        "RD": { bg: "var(--pragma-rd-bg)", color: "var(--pragma-rd)" },
-        "MANSIS": { bg: "var(--pragma-warning-bg)", color: "var(--pragma-warning)" },
-        "MANCT": { bg: "var(--pragma-purple-bg)", color: "var(--pragma-purple)" },
-        "MAN-DOMO": { bg: "#FAC775", color: "#412402" },
-        "MISURATORI": { bg: "#FAECE7", color: "#993C1D" },
-        "RICAMBI": { bg: "#F5C4B3", color: "#4A1B0C" },
-        "CM": { bg: "var(--pragma-neutral-bg)", color: "var(--pragma-neutral)" },
-        "cc_modus": { bg: "var(--pragma-modus-bg)", color: "var(--pragma-modus)" },
-        "cu_unitron": { bg: "var(--pragma-unitron-bg)", color: "var(--pragma-unitron)" }
+        "CK": { bg: "#E6F5FC", color: "#009FE3" },
+        "CL": { bg: "#D8EAF5", color: "#1B5E8C" },
+        "RK": { bg: "#DFF0F0", color: "#0B7A75" },
+        "RD": { bg: "#D4EBE9", color: "#086B66" },
+        "MANSIS": { bg: "#DFF0F0", color: "#0B7A75" },
+        "MANCT": { bg: "#DFF0F0", color: "#0B7A75" },
+        "MAN-DOMO": { bg: "#DFF0F0", color: "#0B7A75" },
+        "MISURATORI": { bg: "#E0E9F0", color: "#5B7E95" },
+        "RICAMBI": { bg: "#E0E9F0", color: "#5B7E95" },
+        "CM": { bg: "#E4ECF2", color: "#4A6274" },
+        "cc_modus": { bg: "#E4ECF2", color: "#4A6274" },
+        "cu_unitron": { bg: "#DDE4F2", color: "#3D5A99" }
       };
       var tipoBadge = "";
       var tipoKey = o.sottotipo || o.macro_categoria || "";
@@ -497,13 +498,13 @@ function loadKpiCards() {
     var d = res.data;
     var kpiDefs = [
       { key: "CK", label: "CK — Sostituzione Ripartitori", icon: "heater", color: "#009FE3", data: d.CK },
-      { key: "CL", label: "CL — Commesse Lavori", icon: "wrench", color: "#EF9F27", data: d.CL },
-      { key: "servizi", label: "Servizi", icon: "repeat", color: "#639922", data: d.servizi }
+      { key: "CL", label: "CL — Commesse Lavori", icon: "wrench", color: "#1B5E8C", data: d.CL },
+      { key: "servizi", label: "Servizi", icon: "repeat", color: "#0B7A75", data: d.servizi }
     ];
     var kpiDefs2 = [
-      { key: "cc_modus", label: "CC-Modus", icon: "layers", color: "#854F0B", data: d.cc_modus },
-      { key: "cu_unitron", label: "CU-Unitron", icon: "radio", color: "#534AB7", data: d.cu_unitron },
-      { key: "fornitura", label: "Fornitura Materiale", icon: "package", color: "#993C1D", data: d.fornitura }
+      { key: "cc_modus", label: "CC-Modus", icon: "layers", color: "#4A6274", data: d.cc_modus },
+      { key: "cu_unitron", label: "CU-Unitron", icon: "wifi", color: "#3D5A99", data: d.cu_unitron },
+      { key: "fornitura", label: "Fornitura Materiale", icon: "package", color: "#5B7E95", data: d.fornitura }
     ];
 
     function renderKpiCard(def) {
@@ -1179,20 +1180,21 @@ function showNuovaOffertaModal(cont) {
     agOpts += '<option value="' + a.id + '">' + esc(a.nome + " " + a.cognome) + "</option>";
   });
 
+  /* Palette coerente: blu Ulteria / navy / petrolio / ardesia / indaco / acciaio */
   var sottotipiDef = [
     { val: "CK", label: "CK", desc: "Sostituzione Ripartitori", macro: "installazione", icon: "heater", color: "#009FE3", bg: "#E6F5FC" },
-    { val: "CL", label: "CL", desc: "Commesse Lavori", macro: "installazione", icon: "wrench", color: "#EF9F27", bg: "#FFF3E0" },
-    { val: "RK", label: "RK", desc: "Lettura Ripartitori", macro: "servizi", icon: "radio", color: "#639922", bg: "#EAF3DE" },
-    { val: "RD", label: "RD", desc: "Lettura Diretta", macro: "servizi", icon: "radio", color: "#173404", bg: "#C0DD97" },
-    { val: "MANSIS", label: "MANSIS", desc: "Manutenzione Sistemi", macro: "servizi", icon: "settings", color: "#854F0B", bg: "#FAEEDA" },
-    { val: "MANCT", label: "MANCT", desc: "Manutenzione CT", macro: "servizi", icon: "settings", color: "#3C3489", bg: "#EEEDFE" },
-    { val: "MAN-DOMO", label: "MAN-DOMO", desc: "Domotica", macro: "servizi", icon: "home", color: "#412402", bg: "#FAC775" },
-    { val: "cc_modus", label: "CC-Modus", desc: "Contabilizzazione", macro: "cc_modus", icon: "layers", color: "#854F0B", bg: "#FAEEDA" },
-    { val: "cu_unitron", label: "CU-Unitron", desc: "Telegestione", macro: "cu_unitron", icon: "wifi", color: "#3C3489", bg: "#EEEDFE" },
-    { val: "MISURATORI", label: "Fornitura", desc: "Misuratori", macro: "fornitura", icon: "package", color: "#993C1D", bg: "#FAECE7" },
-    { val: "RICAMBI", label: "Ricambi", desc: "Ricambi", macro: "fornitura", icon: "package", color: "#4A1B0C", bg: "#F5C4B3" },
-    { val: "CM", label: "CM", desc: "Intervento", macro: "interventi", icon: "tool", color: "#5F5E5A", bg: "#F1EFE8" },
-    { val: "_altro", label: "Altro", desc: "Campo libero", macro: "", icon: "edit", color: "#5F5E5A", bg: "#F1EFE8" }
+    { val: "CL", label: "CL", desc: "Commesse Lavori", macro: "installazione", icon: "wrench", color: "#1B5E8C", bg: "#D8EAF5" },
+    { val: "RK", label: "RK", desc: "Lettura Ripartitori", macro: "servizi", icon: "radio", color: "#0B7A75", bg: "#DFF0F0" },
+    { val: "RD", label: "RD", desc: "Lettura Diretta", macro: "servizi", icon: "radio", color: "#086B66", bg: "#D4EBE9" },
+    { val: "MANSIS", label: "MANSIS", desc: "Manutenzione Sistemi", macro: "servizi", icon: "settings", color: "#0B7A75", bg: "#DFF0F0" },
+    { val: "MANCT", label: "MANCT", desc: "Manutenzione CT", macro: "servizi", icon: "settings", color: "#0B7A75", bg: "#DFF0F0" },
+    { val: "MAN-DOMO", label: "MAN-DOMO", desc: "Domotica", macro: "servizi", icon: "home", color: "#0B7A75", bg: "#DFF0F0" },
+    { val: "cc_modus", label: "CC-Modus", desc: "Contabilizzazione", macro: "cc_modus", icon: "layers", color: "#4A6274", bg: "#E4ECF2" },
+    { val: "cu_unitron", label: "CU-Unitron", desc: "Telegestione", macro: "cu_unitron", icon: "wifi", color: "#3D5A99", bg: "#DDE4F2" },
+    { val: "MISURATORI", label: "Fornitura", desc: "Misuratori", macro: "fornitura", icon: "package", color: "#5B7E95", bg: "#E0E9F0" },
+    { val: "RICAMBI", label: "Ricambi", desc: "Ricambi", macro: "fornitura", icon: "package", color: "#5B7E95", bg: "#E0E9F0" },
+    { val: "CM", label: "CM", desc: "Intervento", macro: "interventi", icon: "tool", color: "#4A6274", bg: "#E4ECF2" },
+    { val: "_altro", label: "Altro", desc: "Campo libero", macro: "", icon: "edit", color: "#6B8BA4", bg: "#EDF3F8" }
   ];
 
   var bh = "";
