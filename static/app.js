@@ -460,6 +460,7 @@ function buildDashboard(c) {
       h += "</div></div>";
       /* Actions */
       h += '<div class="fac gap6" style="flex-wrap:wrap">';
+      h += '<button class="btn btn-sm btn-sec" data-edit-off="' + o.id + '"><i data-lucide="edit" style="width:12px;height:12px"></i> Modifica</button>';
       h += '<button class="btn btn-sm btn-primary" data-gen-id="' + o.id + '"><i data-lucide="zap" style="width:12px;height:12px"></i> Genera DOCX</button>';
       if (hasDocx) h += '<button class="btn btn-sm btn-sec" data-open="' + esc(o.path_docx) + '"><i data-lucide="file-text" style="width:12px;height:12px"></i> DOCX</button>';
       if (hasPdf) h += '<button class="btn btn-sm btn-pdf" data-open="' + esc(o.path_pdf) + '"><i data-lucide="file" style="width:12px;height:12px"></i> PDF</button>';
@@ -711,6 +712,16 @@ function attachDashEvents(c) {
     });
   });
 
+  /* Modifica offerta */
+  c.querySelectorAll("[data-edit-off]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var id = parseInt(btn.getAttribute("data-edit-off"));
+      var off = offerte.find(function(o) { return o.id === id; });
+      if (off) showEditOffertaModal(off, c);
+    });
+  });
+
   /* Foglio Costi link */
   c.querySelectorAll("[data-fc-oggetto]").forEach(function(btn) {
     btn.addEventListener("click", function(e) {
@@ -898,6 +909,96 @@ function showMotivoPerdita(oid, oldStato, cont) {
     footer.appendChild(btnConfirm);
   }
 }
+
+/* ─── Modifica Offerta Modal ─── */
+
+function showEditOffertaModal(off, cont) {
+  closeModal();
+
+  var agOpts = '<option value="">-- Seleziona --</option>';
+  agenti.forEach(function(a) {
+    agOpts += '<option value="' + a.id + '"' + (off.agente_id === a.id ? " selected" : "") + '>' + esc(a.nome + ' ' + a.cognome) + '</option>';
+  });
+
+  var overlay = document.createElement("div");
+  overlay.className = "modal-overlay show";
+  overlay.id = "modal-overlay";
+  overlay.addEventListener("click", function(e) { if (e.target === overlay) closeModal(); });
+
+  var modal = document.createElement("div");
+  modal.className = "modal";
+  modal.style.width = "700px";
+  modal.style.maxHeight = "90vh";
+  modal.style.overflowY = "auto";
+
+  var header = document.createElement("div");
+  header.className = "modal-header";
+  header.innerHTML = '<h2>Modifica Offerta N. ' + (off.numero || off.id) + '</h2>';
+
+  var body = document.createElement("div");
+  body.className = "modal-body";
+
+  var bh = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Studio / Cliente</label><input class="inp" id="eo-studio" value="' + esc(off.nome_studio || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Agente</label><select class="inp" id="eo-agente" style="font-size:.88rem;padding:9px 12px">' + agOpts + '</select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Nome Condominio</label><input class="inp" id="eo-cond" value="' + esc(off.nome_condominio || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Via</label><input class="inp" id="eo-via" value="' + esc(off.via || off.oggetto_via || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Comune</label><input class="inp" id="eo-citta" value="' + esc(off.citta || off.oggetto_comune || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Macro Categoria</label><select class="inp" id="eo-macro" style="font-size:.88rem;padding:9px 12px"><option value="">--</option><option value="installazione"' + (off.macro_categoria === 'installazione' ? ' selected' : '') + '>Installazione</option><option value="servizi"' + (off.macro_categoria === 'servizi' ? ' selected' : '') + '>Servizi</option><option value="cc_modus"' + (off.macro_categoria === 'cc_modus' ? ' selected' : '') + '>CC-Modus</option><option value="cu_unitron"' + (off.macro_categoria === 'cu_unitron' ? ' selected' : '') + '>CU-Unitron</option><option value="fornitura"' + (off.macro_categoria === 'fornitura' ? ' selected' : '') + '>Fornitura</option><option value="interventi"' + (off.macro_categoria === 'interventi' ? ' selected' : '') + '>Interventi</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Sottotipo</label><input class="inp" id="eo-sottotipo" value="' + esc(off.sottotipo || '') + '" placeholder="CK, CL, RK, RD..." style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Natura</label><select class="inp" id="eo-natura" style="font-size:.88rem;padding:9px 12px"><option value="nuovo"' + (off.natura === 'nuovo' ? ' selected' : '') + '>Nuovo</option><option value="rinnovo"' + (off.natura === 'rinnovo' ? ' selected' : '') + '>Rinnovo</option><option value="subentro_diretto"' + (off.natura === 'subentro_diretto' ? ' selected' : '') + '>Subentro Diretto</option><option value="subentro_intermediario"' + (off.natura === 'subentro_intermediario' ? ' selected' : '') + '>Subentro Intermediario</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Stato</label><select class="inp" id="eo-stato" style="font-size:.88rem;padding:9px 12px"><option value="richiamato"' + (off.stato === 'richiamato' ? ' selected' : '') + '>Richiamato</option><option value="in_attesa_assemblea"' + (off.stato === 'in_attesa_assemblea' ? ' selected' : '') + '>In Attesa Assemblea</option><option value="preso_lavoro"' + (off.stato === 'preso_lavoro' ? ' selected' : '') + '>Preso Lavoro</option><option value="perso"' + (off.stato === 'perso' ? ' selected' : '') + '>Perso</option><option value="rimandato"' + (off.stato === 'rimandato' ? ' selected' : '') + '>Rimandato</option></select></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Valore Commessa &euro;</label><input class="inp" type="number" step="0.01" id="eo-valore" value="' + (off.valore_commessa || off.importo || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Canone Annuo &euro;/anno</label><input class="inp" type="number" step="0.01" id="eo-annuo" value="' + (off.importo_servizio_annuo || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Email</label><input class="inp" id="eo-email" value="' + esc(off.email_studio || '') + '" style="font-size:.88rem;padding:9px 12px" /></div>';
+  bh += '<div class="form-field" style="grid-column:1/-1"><label style="font-size:.82rem;font-weight:700;color:var(--mid)">Note</label><textarea class="inp" id="eo-note" rows="2" style="font-size:.88rem;padding:9px 12px">' + esc(off.note || '') + '</textarea></div>';
+  bh += '</div>';
+  body.innerHTML = bh;
+
+  var footer = document.createElement("div");
+  footer.className = "modal-footer";
+  var btnCancel = document.createElement("button");
+  btnCancel.className = "btn btn-sec";
+  btnCancel.textContent = "Annulla";
+  btnCancel.addEventListener("click", closeModal);
+  var btnSave = document.createElement("button");
+  btnSave.className = "btn btn-primary";
+  btnSave.textContent = "Salva Modifiche";
+  btnSave.addEventListener("click", function() {
+    var payload = {
+      nome_studio: document.getElementById("eo-studio").value,
+      agente_id: document.getElementById("eo-agente").value ? parseInt(document.getElementById("eo-agente").value) : null,
+      nome_condominio: document.getElementById("eo-cond").value,
+      via: document.getElementById("eo-via").value,
+      citta: document.getElementById("eo-citta").value,
+      macro_categoria: document.getElementById("eo-macro").value || null,
+      sottotipo: document.getElementById("eo-sottotipo").value || null,
+      natura: document.getElementById("eo-natura").value,
+      stato: document.getElementById("eo-stato").value,
+      valore_commessa: parseFloat(document.getElementById("eo-valore").value) || null,
+      importo: parseFloat(document.getElementById("eo-valore").value) || null,
+      importo_servizio_annuo: parseFloat(document.getElementById("eo-annuo").value) || null,
+      email_studio: document.getElementById("eo-email").value || null,
+      note: document.getElementById("eo-note").value || null
+    };
+    api("PUT", "/api/offerte/" + off.id, payload).then(function() {
+      closeModal();
+      toast("Offerta aggiornata", "ok");
+      renderDashboard(cont);
+    }).catch(function(e) {
+      toast("Errore: " + e.message, "error");
+    });
+  });
+  footer.appendChild(btnCancel);
+  footer.appendChild(btnSave);
+  modal.appendChild(header);
+  modal.appendChild(body);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  icons();
+}
+
 
 /* ─── Nuova Offerta Modal (v3 — styled + complete) ─── */
 
