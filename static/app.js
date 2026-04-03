@@ -339,17 +339,17 @@ function buildDashboard(c) {
     }
     /* Studio / Cliente */
     if (dashVisibleCols.indexOf("nome_studio") >= 0) {
-      h += '<td class="editable" data-field="nome_studio"><div><strong>' + esc(o.nome_studio || "") + "</strong></div>";
-      if (o.cliente_tipo) h += '<div><span class="badge" style="font-size:.55rem;background:#E6F5FC;color:#0080B8">' + esc(o.cliente_tipo) + "</span></div>";
+      h += '<td class="editable" data-field="nome_studio"><div style="font-size:13px;font-weight:500">' + esc(o.nome_studio || "") + "</div>";
+      if (o.cliente_tipo) h += '<div><span style="font-size:10px;font-weight:600;color:var(--pragma-text-muted)">' + esc(o.cliente_tipo) + "</span></div>";
       h += "</td>";
     }
     /* Riferimento (oggetto via + comune) */
     if (dashVisibleCols.indexOf("riferimento") >= 0) {
       var rif = "";
-      if (o.oggetto_nome) rif += '<div style="font-weight:700;font-size:.78rem">' + esc(o.oggetto_nome) + "</div>";
+      if (o.oggetto_nome) rif += '<div style="font-size:13px;font-weight:500">' + esc(o.oggetto_nome) + "</div>";
       var addr = (o.oggetto_via || o.via || "") + (o.oggetto_civico ? " " + o.oggetto_civico : "");
       var com = o.oggetto_comune || o.citta || "";
-      if (addr || com) rif += '<div style="font-size:.72rem;color:var(--mid)">' + esc(addr + (com ? " \u2014 " + com : "")) + "</div>";
+      if (addr || com) rif += '<div style="font-size:12px;color:var(--pragma-text-muted)">' + esc(addr + (com ? " \u2014 " + com : "")) + "</div>";
       h += "<td>" + (rif || '<span style="color:var(--muted)">\u2014</span>') + "</td>";
     }
     /* Tipologia (sottotipo badge) */
