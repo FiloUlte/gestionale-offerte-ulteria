@@ -735,3 +735,6 @@ input.inp:focus, select.inp:focus, textarea.inp:focus {
 .cell-edit:focus {
   box-shadow: 0 0 0 2px rgba(0,159,227,0.15);
 }
+
+/* Cestino riga — hover rosso */
+.act-del:hover { opacity: 1 !important; color: var(--pragma-danger) !important; }

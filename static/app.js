@@ -126,7 +126,7 @@ var PAGE_SIZE = 50;
 var dashPage = 0;
 var dashVisibleCols = null;
 var ALL_COLS = ["checkbox","numero","nome_studio","riferimento","tipologia","valore","agente_id","stato","giorni","elimina"];
-var COL_LABELS = {checkbox:"",numero:"N. Offerta",nome_studio:"Studio / Cliente",riferimento:"Riferimento",tipologia:"Tipologia",valore:"Valore",agente_id:"Agente",stato:"Stato",giorni:"Giorni",elimina:""};
+var COL_LABELS = {checkbox:"",numero:"N.",nome_studio:"Cliente",riferimento:"Riferimento",tipologia:"Tipo",valore:"Valore",agente_id:"Ag.",stato:"Stato",giorni:"Gg",elimina:""};
 
 function loadDashFilters() {
   try {
@@ -275,13 +275,13 @@ function buildDashboard(c) {
 
   var sortable = { numero: 1, nome_studio: 1, riferimento: 1, valore: 1, stato: 1, giorni: 1 };
   var colDefs = [
-    { key: "numero", w: "100px" },
-    { key: "nome_studio", w: "180px" }, { key: "riferimento", w: "200px" },
-    { key: "tipologia", w: "100px" },
-    { key: "valore", w: "110px", cls: "r" },
-    { key: "agente_id", w: "60px" },
-    { key: "stato", w: "140px" },
-    { key: "giorni", w: "60px" }, { key: "elimina", w: "40px" }
+    { key: "numero", w: "70px" },
+    { key: "nome_studio", w: "auto" }, { key: "riferimento", w: "auto" },
+    { key: "tipologia", w: "65px" },
+    { key: "valore", w: "90px", cls: "r" },
+    { key: "agente_id", w: "40px" },
+    { key: "stato", w: "110px" },
+    { key: "giorni", w: "45px" }, { key: "elimina", w: "30px" }
   ];
   var filterableCols = { stato: 1, agente_id: 1, tipologia: 1, nome_studio: 1 };
   colDefs.forEach(function(cd) {
@@ -380,7 +380,7 @@ function buildDashboard(c) {
           var agObj = getAgente(o.agente_id);
           if (agObj) { agI = ((agObj.nome || " ")[0] + (agObj.cognome || " ")[0]).toUpperCase(); agCol2 = agObj.colore || "#009FE3"; }
         }
-        h += '<td class="editable" data-field="agente_id" title="' + esc(agName + " " + agSur) + '"><span class="agente-dot" style="background:' + agCol2 + ';width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:.65rem;font-weight:800;color:#fff">' + agI + "</span></td>";
+        h += '<td class="editable" data-field="agente_id" title="' + esc(agName + " " + agSur) + '" style="text-align:center"><span style="background:' + agCol2 + ';width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:9px;font-weight:800;color:#fff">' + agI + "</span></td>";
       } else {
         h += '<td class="editable" data-field="agente_id" style="text-align:center"><span style="color:var(--muted);font-size:.7rem;cursor:pointer" title="Clicca per assegnare agente">+</span></td>';
       }
@@ -391,7 +391,7 @@ function buildDashboard(c) {
     if (dashVisibleCols.indexOf("giorni") >= 0) h += "<td>" + ggHtml + "</td>";
     /* Elimina (solo cestino) */
     if (dashVisibleCols.indexOf("elimina") >= 0) {
-      h += '<td><button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina" style="padding:4px"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button></td>';
+      h += '<td style="padding:4px;text-align:center"><button class="act-btn act-del" data-del-id="' + o.id + '" data-del-num="' + (o.numero || "") + '" title="Elimina" style="padding:2px;border:none;background:none;cursor:pointer;color:var(--pragma-text-muted);opacity:.4;transition:all .15s"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></td>';
     }
     h += "</tr>";
 
