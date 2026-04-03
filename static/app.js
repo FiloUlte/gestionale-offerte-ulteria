@@ -86,7 +86,7 @@ function icons() {
 
 function navigate(view) {
   currentView = view;
-  document.querySelectorAll(".nav-item").forEach(function(el) {
+  document.querySelectorAll(".pragma-nav-item, .nav-item").forEach(function(el) {
     el.classList.toggle("active", el.getAttribute("data-view") === view);
   });
   var map = {
