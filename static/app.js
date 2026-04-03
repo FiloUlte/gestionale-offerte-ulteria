@@ -349,11 +349,12 @@ function buildDashboard(c) {
     h += '<tr data-oid="' + o.id + '" class="' + (isSel ? "row-selected" : "") + urgentCls + '">';
     h += '<td><input type="checkbox" class="row-sel" data-sel-id="' + o.id + '"' + (isSel ? " checked" : "") + " /></td>";
 
-    /* N. Offerta (merged with versione) */
+    /* N. Offerta (merged with versione) + chevron expand icon */
     if (dashVisibleCols.indexOf("numero") >= 0) {
       var numDisp = o.numero || "\u2014";
       if (o.versione && o.versione !== "A") numDisp = numDisp + "-" + o.versione;
-      h += '<td class="mono">' + numDisp + "</td>";
+      var chevIcon = isExp ? "chevron-down" : "chevron-right";
+      h += '<td class="mono" style="cursor:pointer"><i data-lucide="' + chevIcon + '" style="width:14px;height:14px;vertical-align:-2px;color:var(--blue);margin-right:4px"></i>' + numDisp + "</td>";
     }
     /* Studio / Cliente */
     if (dashVisibleCols.indexOf("nome_studio") >= 0) {
